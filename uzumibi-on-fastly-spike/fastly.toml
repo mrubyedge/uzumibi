@@ -1,0 +1,15 @@
+# This file describes a Fastly Compute package. To learn more visit:
+# https://www.fastly.com/documentation/reference/compute/fastly-toml
+
+authors = ["udzura@udzura.jp"]
+cloned_from = "https://github.com/fastly/compute-starter-kit-rust-empty"
+description = "uzumibi-on-fastly-spike"
+language = "rust"
+manifest_version = 3
+name = "uzumibi-on-fastly-spike"
+service_id = ""
+
+[local_server]
+
+[scripts]
+  build = "cargo build --profile release"

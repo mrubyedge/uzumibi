@@ -2,5 +2,5 @@
 resolver = "3"
 members = [
     "uzumibi-cli",
-    "uzumibi-gem",
+    "uzumibi-gem", "uzumibi-on-cloudflare-spike", "uzumibi-on-fastly-spike",
 ]
