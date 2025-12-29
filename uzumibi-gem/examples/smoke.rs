@@ -19,7 +19,7 @@ p router
 
 fn main() -> Result<(), mrubyedge::Error> {
     unsafe {
-        // env::set_var("MRUBYEDGE_DEBUG", "2");
+        env::set_var("MRUBYEDGE_DEBUG", "2");
     }
 
     let mrb_bin = unsafe {
