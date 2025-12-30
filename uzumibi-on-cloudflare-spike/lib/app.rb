@@ -4,7 +4,10 @@ class App < Uzumibi::Router
     debug_console("[Uzumibi] Requested UA: #{req.headers["user-agent"]}")
 
     res.status_code = 200
-    res.headers = { "Content-Type" => "text/plain" }
+    res.headers = {
+      "Content-Type" => "text/plain",
+      "X-Powered-By" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
+    }
     res.body = "Hello, Uzumibi on Cloudflare Workers!"
     res
   end
