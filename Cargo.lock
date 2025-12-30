@@ -1029,12 +1029,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-gem"
+version = "0.1.0-rc1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d001e6755d2b43e4cf1c68d5e350301513ef207fbff6e8961353cc7b5b11e499"
+dependencies = [
+ "mrubyedge",
+]
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem",
+ "uzumibi-gem 0.1.0-rc1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -19,8 +19,8 @@ const exports = instance.exports;
 
 export default {
 	async fetch(request, env, ctx) {
-		const reqOffset = exports.uzumibi_initialize_request(1024);
-		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 1024);
+		const reqOffset = exports.uzumibi_initialize_request(65536);
+		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
 		const path = new URL(request.url).pathname;
 		if (path === "/favicon.ico") {
 			return new Response(null, { status: 404 });
@@ -30,10 +30,9 @@ export default {
 		const encoder = new TextEncoder();
 		const dataView = new DataView(exports.memory.buffer, reqOffset);
 
-		// Method (e.g., "GET") - 最大6文字、残りは\0で埋める
 		const method = encoder.encode(request.method);
-		requestBuffer.fill(0, pos, pos + 6); // 6バイトをゼロクリア
-		requestBuffer.set(method.slice(0, 6), pos); // 最大6バイトを書き込み
+		requestBuffer.fill(0, pos, pos + 6);
+		requestBuffer.set(method.slice(0, 6), pos);
 		pos += 6;
 
 		// Path size (u16 little-endian)
@@ -80,6 +79,9 @@ export default {
 			requestBuffer.set(valueBytes, pos);
 			pos += valueBytes.length;
 		}
+		if (pos > 65536) {
+			throw new Error("Request data exceeds allocated buffer size");
+		}
 
 		const resOffset = exports.uzumibi_start_request();
 
@@ -117,6 +119,7 @@ export default {
 			const value = decoder.decode(valueBytes);
 			resPos += valueSize;
 
+			console.log(`[Response Header] ${key}: ${value}`);
 			responseHeaders.set(key, value);
 		}
 

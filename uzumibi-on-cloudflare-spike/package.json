@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
+		"dev": "cargo build --package uzumibi-on-cloudflare-spike --target wasm32-unknown-unknown --release && cp -v -f ../target/wasm32-unknown-unknown/release/uzumibi_on_cloudflare_spike.wasm src/ && wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest"
 	},
