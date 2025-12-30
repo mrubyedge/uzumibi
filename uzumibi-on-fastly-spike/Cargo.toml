@@ -7,10 +7,11 @@ edition = "2021"
 # Otherwise, `publish = false` prevents an accidental `cargo publish` from revealing private source.
 publish = false
 
-[profile.release]
-debug = 1
-codegen-units = 1
-lto = "fat"
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 fastly = "0.11.0"
+
+[build-dependencies]
+mruby-compiler2-sys = ">= 0.2.2"
