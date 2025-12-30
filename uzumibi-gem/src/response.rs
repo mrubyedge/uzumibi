@@ -164,7 +164,8 @@ fn uzumibi_response_to_shared_memory(
     buf.extend_from_slice(&body_size_buf);
     buf.extend_from_slice(body_bytes);
 
-    let memory = mrb_shared_memory_new(vm, &[])?;
+    let size = RObject::integer(buf.len() as i64).to_refcount_assigned();
+    let memory = mrb_shared_memory_new(vm, &[size])?;
     let buf = RObject::string_from_vec(buf).to_refcount_assigned();
     mrb_funcall(vm, Some(memory.clone()), "replace", &[buf])?;
     Ok(memory)

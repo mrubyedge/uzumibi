@@ -62,6 +62,12 @@ pub fn init_uzumibi(vm: &mut VM) {
         "start_request",
         Box::new(uzumibi_start_request),
     );
+    mrb_define_cmethod(
+        vm,
+        router_class,
+        "start_request_and_return_shared_memory",
+        Box::new(uzumibi_start_request_and_return_shared_memory),
+    );
 
     init_uzumibi_response(vm);
     init_uzumibi_request(vm);
@@ -130,6 +136,16 @@ fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
     }
 }
 
+fn uzumibi_start_request_and_return_shared_memory(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    let response = uzumibi_start_request(vm, &[])?;
+    let response_sm = mrb_funcall(vm, response.into(), "to_shared_memory", &[])?;
+    Ok(response_sm)
+}
+
+#[allow(dead_code)]
 fn uzumibi_class(vm: &mut VM) -> Rc<RObject> {
     vm.get_const_by_name("Uzumibi").unwrap()
 }

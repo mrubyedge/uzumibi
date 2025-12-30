@@ -1,5 +1,3 @@
-use std::env;
-
 use mrubyedge::yamrb::vm::VM;
 
 extern crate mruby_compiler2_sys;
@@ -8,19 +6,44 @@ extern crate uzumibi_gem;
 
 const SCRIPT: &str = r#"
 class App < Uzumibi::Router
-  get "/" do
-    "Hello, Uzumibi!"
+  get "/" do |req, res|
+    p req.method
+    p req.path
+    p req.headers
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Hello, Uzumibi!"
   end
 end
 
 router = App.new
 p router
+
+sm = router.initialize_request(1024)
+p sm
+buf = "GET"
+buf += [0, 0, 0].pack("CCC")  # buffer
+buf += [1].pack("S")  # path size
+buf += "/"
+buf += [2].pack("S")  # headers size
+buf += [4].pack("S")  # header 1 key size
+buf += "Host"
+buf += [11].pack("S") # header 1 value size
+buf += "example.com"
+buf += [6].pack("S")  # header 2 key size
+buf += "Accept"
+buf += [3].pack("S")  # header 2 value size
+buf += "*/*"
+sm.replace(buf)
+
+response = router.start_request_and_return_shared_memory
+p response
 "#;
 
 fn main() -> Result<(), mrubyedge::Error> {
-    unsafe {
-        env::set_var("MRUBYEDGE_DEBUG", "2");
-    }
+    //unsafe {
+    // std::env::set_var("MRUBYEDGE_DEBUG", "2");
+    //}
 
     let mrb_bin = unsafe {
         mruby_compiler2_sys::MRubyCompiler2Context::new()

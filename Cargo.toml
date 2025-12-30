@@ -3,5 +3,13 @@ resolver = "3"
 members = [
     "uzumibi-cli",
     "uzumibi-gem",
-    "uzumibi-on-cloudflare-spike", "uzumibi-on-fastly-spike", "uzumibi-on-wasmcloud-spike",
+    "uzumibi-on-cloudflare-spike/wasm-app",
+    "uzumibi-on-fastly-spike",
+    "uzumibi-on-wasmcloud-spike",
 ]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true
+strip = true

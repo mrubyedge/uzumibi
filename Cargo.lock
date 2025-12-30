@@ -381,6 +381,7 @@ name = "fastly-compute-project"
 version = "0.1.0"
 dependencies = [
  "fastly",
+ "mruby-compiler2-sys",
 ]
 
 [[package]]
@@ -1351,13 +1352,17 @@ version = "0.1.0"
 name = "uzumibi-gem"
 version = "0.1.0"
 dependencies = [
- "mruby-compiler2-sys",
  "mrubyedge",
 ]
 
 [[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
+dependencies = [
+ "mruby-compiler2-sys",
+ "mrubyedge",
+ "uzumibi-gem",
+]
 
 [[package]]
 name = "version_check"
