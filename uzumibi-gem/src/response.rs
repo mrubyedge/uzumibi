@@ -27,6 +27,7 @@ use mrubyedge::{
     },
 };
 
+#[derive(Debug)]
 pub struct Response {
     pub status_code: u16,
     pub headers: HashMap<String, String>,
@@ -55,24 +56,24 @@ pub(crate) fn init_uzumibi_response(vm: &mut VM) {
     mrb_funcall(
         vm,
         Some(response_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(RESPONSE_STATUS_CODE_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
     mrb_funcall(
         vm,
         Some(response_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(RESPONSE_HEADERS_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
     mrb_funcall(
         vm,
         Some(response_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(RESPONSE_BODY_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
 
     mrb_define_cmethod(
         vm,

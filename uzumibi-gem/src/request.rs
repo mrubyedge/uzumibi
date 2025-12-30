@@ -20,6 +20,7 @@ use mrubyedge::yamrb::{
     vm::VM,
 };
 
+#[derive(Debug)]
 pub struct Request {
     pub method: String,
     pub path: String,
@@ -48,24 +49,24 @@ pub(crate) fn init_uzumibi_request(vm: &mut VM) {
     mrb_funcall(
         vm,
         Some(request_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(REQUEST_METHOD_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
     mrb_funcall(
         vm,
         Some(request_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(REQUEST_PATH_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
     mrb_funcall(
         vm,
         Some(request_class.clone()),
-        "attr_writer",
+        "attr_accessor",
         &[as_sym(REQUEST_HEADERS_KEY)],
     )
-    .expect("attr_writer failed");
+    .expect("attr_accessor failed");
 }
 
 fn as_sym(name: impl Into<String>) -> Rc<RObject> {
@@ -75,8 +76,14 @@ fn as_sym(name: impl Into<String>) -> Rc<RObject> {
 
 impl Request {
     pub fn new_from_buffer(buf: &[u8]) -> Self {
-        let method: String = buf[0..4].iter().map(|&b| b as char).collect();
-        let buf = &buf[4..];
+        let mut method = String::new();
+        for &b in &buf[..6] {
+            if b == 0 {
+                break;
+            }
+            method.push(b as char);
+        }
+        let buf = &buf[6..];
         let path_size = u16::from_le_bytes([buf[0], buf[1]]);
         let buf = &buf[2..];
         let path: String = buf[0..path_size as usize]
@@ -89,28 +96,24 @@ impl Request {
         let buf = &buf[2..];
         let mut headers = HashMap::new();
 
-        let headers_data = &buf[0..headers_size as usize];
+        let headers_data = buf;
         let mut pos = 0;
-        while pos < headers_data.len() {
-            // Read header name until \0
-            let name_end = headers_data[pos..]
+        for _ in 0..headers_size {
+            let name_size = u16::from_le_bytes([headers_data[pos], headers_data[pos + 1]]) as usize;
+            pos += 2;
+            let name: String = headers_data[pos..pos + name_size]
                 .iter()
-                .position(|&b| b == 0)
-                .unwrap_or(headers_data.len() - pos);
-            let name = String::from_utf8_lossy(&headers_data[pos..pos + name_end]).to_string();
-            pos += name_end + 1; // Skip \0
-
-            if pos >= headers_data.len() {
-                break;
-            }
-
-            // Read header value until \0
-            let value_end = headers_data[pos..]
+                .map(|&b| b as char)
+                .collect();
+            pos += name_size;
+            let value_size =
+                u16::from_le_bytes([headers_data[pos], headers_data[pos + 1]]) as usize;
+            pos += 2;
+            let value: String = headers_data[pos..pos + value_size]
                 .iter()
-                .position(|&b| b == 0)
-                .unwrap_or(headers_data.len() - pos);
-            let value = String::from_utf8_lossy(&headers_data[pos..pos + value_end]).to_string();
-            pos += value_end + 1; // Skip \0
+                .map(|&b| b as char)
+                .collect();
+            pos += value_size;
 
             headers.insert(name, value);
         }

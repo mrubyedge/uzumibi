@@ -100,16 +100,18 @@ fn uzumibi_router_set_route(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObj
 
 fn uzumibi_initialize_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let shared_memory = mrb_shared_memory_new(vm, args)?;
-    shared_memory.set_ivar(REQUEST_BUF_KEY, shared_memory.clone());
+    vm.getself()?
+        .set_ivar(REQUEST_BUF_KEY, shared_memory.clone());
     Ok(shared_memory)
 }
 
 fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let app = vm.getself()?;
     let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
     let request = uzumibi_construct_request(request_buf)?;
 
-    let uzumibi = uzumibi_class(vm);
-    let router_hash = uzumibi.get_ivar(ROUTES_KEY);
+    let self_class = mrb_funcall(vm, app.into(), "class", &[])?;
+    let router_hash = self_class.get_ivar(ROUTES_KEY);
     if router_hash.is_falsy() {
         return Err(Error::RuntimeError("Router is not initialized".to_string()));
     }
