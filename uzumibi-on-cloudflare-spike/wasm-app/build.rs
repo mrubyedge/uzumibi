@@ -5,7 +5,7 @@ extern crate mruby_compiler2_sys;
 fn main() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let mrb_path = Path::new(&out_dir).join("app.mrb");
-    let code = include_str!("./lib/app.rb");
+    let code = include_str!("../lib/app.rb");
     println!("cargo:rerun-if-changed=lib/app.rb");
 
     unsafe {

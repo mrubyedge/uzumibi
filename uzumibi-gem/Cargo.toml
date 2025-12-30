@@ -1,13 +1,10 @@
 [package]
 name = "uzumibi-gem"
-version = "0.1.0"
+version = "0.1.0-rc1"
 edition = "2024"
 
 [dependencies]
-#mrubyedge = { version = "1.0.13", features = [
-#    "no-wasi",
-#], default-features = false }
-mrubyedge = { path = "../mrubyedge", features = [
+mrubyedge = { version = "1.0.15", features = [
     "no-wasi",
 ], default-features = false }
 

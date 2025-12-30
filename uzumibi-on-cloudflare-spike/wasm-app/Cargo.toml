@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mrubyedge = { path = "../../mrubyedge", features = [
+mrubyedge = { version = "1.0.15", features = [
     "no-wasi",
 ], default-features = false }
 uzumibi-gem = { path = "../../uzumibi-gem" }
