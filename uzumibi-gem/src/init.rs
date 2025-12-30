@@ -17,6 +17,20 @@ use crate::{request::*, response::*};
 
 extern crate mrubyedge;
 
+///
+/// init_uzumibi() defines Uzumibi module and Router class.
+/// Signatures are as follows:
+///
+/// ```rbs
+/// @rbs!
+///   module Uzumibi
+///     class Router
+///       def self.routes() -> Hash
+///       def self.get(path, handler) -> path
+///       def initialize_request(size) -> SharedMemory
+///       def start_request() -> Response
+/// ```
+///
 pub fn init_uzumibi(vm: &mut VM) {
     let uzumibi = vm.define_module("Uzumibi", None);
     let router_class = vm.define_class("Router", None, Some(uzumibi.clone()));

@@ -1,3 +1,16 @@
+//! This module defines Uzumibi::Request class.
+//! `init_uzumibi_request()` defines internally.
+//! Signatures are as follows:
+//!
+//! ```rbs
+//! @rbs!
+//!   module Uzumibi
+//!     class Request
+//!       def method: String
+//!       def path: String
+//!       def headers: Hash<String, String>
+//! ```
+//!
 use std::{collections::HashMap, rc::Rc};
 
 use mrubyedge::yamrb::{
@@ -144,9 +157,9 @@ pub(crate) fn uzumibi_request_new(vm: &mut VM) -> Rc<RObject> {
         _ => panic!("Uzumibi must be a module"),
     };
     let request_class = uzumibi_module.get_const_by_name("Request");
-    if request_class.is_falsy() {
-        panic!("Request class must be defined beforehand");
+    match request_class.as_ref() {
+        Some(request) if request.is_truthy() => mrb_funcall(vm, Some(request.clone()), "new", &[])
+            .expect("Failed to create Request instance"),
+        _ => panic!("Request class must be defined beforehand"),
     }
-
-    mrb_funcall(vm, Some(request_class), "new", &[]).expect("Failed to create Request instance")
 }
