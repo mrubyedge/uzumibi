@@ -1,12 +1,13 @@
 [workspace]
-resolver = "3"
 members = [
     "uzumibi-cli",
     "uzumibi-gem",
     "uzumibi-on-cloudflare-spike/wasm-app",
     "uzumibi-on-fastly-spike",
-    "uzumibi-on-wasmcloud-spike",
+    "uzumibi-on-spin-spike",
+    #    "uzumibi-on-wasmcloud-spike",
 ]
+resolver = "3"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

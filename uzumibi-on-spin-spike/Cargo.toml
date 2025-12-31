@@ -1,0 +1,22 @@
+[package]
+name = "uzumibi-on-spin-spike"
+authors = ["Uchio Kondo <udzura@udzura.jp>"]
+description = ""
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+spin-sdk = "5.0.0"
+mrubyedge = { version = "1.0.15", features = [
+    "wasi",
+], default-features = false }
+uzumibi-gem = "0.1.0-rc1"
+log = "0.4.29"
+
+[build-dependencies]
+mruby-compiler2-sys = ">= 0.2.2"
