@@ -42,11 +42,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn available_templates() -> Vec<&'static str> {
+    TEMPLATES
+        .dirs()
+        .map(|dir| dir.path().file_name().unwrap().to_str().unwrap())
+        .collect()
+}
+
 fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Check if template exists
-    let template_dir = TEMPLATES
-        .get_dir(template)
-        .ok_or_else(|| format!("Template '{}' not found", template))?;
+    let template_dir = TEMPLATES.get_dir(template).ok_or_else(|| {
+        eprintln!("Available templates: {:?}", available_templates());
+        format!("Template '{}' not found", template,)
+    })?;
 
     // Check if target directory already exists
     let target_path = Path::new(project_name);
