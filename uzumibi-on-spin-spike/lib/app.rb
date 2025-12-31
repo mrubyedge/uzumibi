@@ -8,7 +8,10 @@ class App < Uzumibi::Router
       "Content-Type" => "text/plain",
       "X-Powered-By" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
     }
-    res.body = "Hello, this is Uzumibi, powered by #{RUBY_ENGINE} - #{RUBY_VERSION}\n"
+    res.body = 
+      "\"Uzumibi\" is a Japanese term that refers\n" +
+      "to live embers buried under a layer of ash\n" +
+      "to keep the fire from going out.\n"
     res
   end
 end
