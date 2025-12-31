@@ -1,0 +1,20 @@
+# This file describes a Fastly Compute package. To learn more visit:
+# https://www.fastly.com/documentation/reference/compute/fastly-toml
+
+authors = []
+description = "$$PROJECT_NAME$$"
+language = "rust"
+manifest_version = 3
+name = "$$PROJECT_NAME$$"
+service_id = ""
+
+[local_server]
+
+[local_server.backends]
+
+[local_server.backends.uzumibi]
+url = "http://localhost:7676"
+
+[scripts]
+build = "cargo build --profile release"
+post_init = "rustup target add wasm32-wasip1"

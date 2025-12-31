@@ -1,0 +1,21 @@
+#:schema https://schemas.spinframework.dev/spin/manifest-v2/latest.json
+
+spin_manifest_version = 2
+
+[application]
+name = "$$PROJECT_NAME$$"
+version = "0.1.0"
+authors = []
+description = ""
+
+[[trigger.http]]
+route = "/..."
+component = "$$PROJECT_NAME$$"
+
+[component.$$PROJECT_NAME$$]
+source = "target/wasm32-wasip1/release/$$PROJECT_NAME_UNDERSCORE$$.wasm"
+allowed_outbound_hosts = []
+
+[component.$$PROJECT_NAME$$.build]
+command = "cargo build --target wasm32-wasip1 --release"
+watch = ["src/**/*.rs", "lib/*.rb", "Cargo.toml"]
