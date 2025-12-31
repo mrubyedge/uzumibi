@@ -134,9 +134,16 @@ fn substitute_project_name(content: &str, project_name: &str) -> String {
 
 fn print_project_next_steps(template: &str) {
     println!("\nNext steps:");
-
     match template {
         "cloudflare" => {
+            println!("  0. Install required tools (if not installed):");
+            println!("     • Rust & Cargo:");
+            println!(
+                "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!("     • Node.js tools:");
+            println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
+            println!();
             println!("  1. Install dependencies:");
             println!("     \x1b[36mpnpm install\x1b[0m");
             println!("  2. Build and start development server:");
@@ -145,6 +152,15 @@ fn print_project_next_steps(template: &str) {
             println!("     \x1b[36mpnpm run deploy\x1b[0m");
         }
         "fastly" => {
+            println!("  0. Install required tools (if not installed):");
+            println!("     • Rust & Cargo:");
+            println!(
+                "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!("     • Fastly CLI:");
+            println!("     \x1b[36mbrew install fastly/tap/fastly\x1b[0m");
+            println!("     Or visit: https://www.fastly.com/documentation/reference/tools/cli/");
+            println!();
             println!("  1. Build the project:");
             println!("     \x1b[36mfastly compute build\x1b[0m");
             println!("  2. Start local development server:");
@@ -153,6 +169,17 @@ fn print_project_next_steps(template: &str) {
             println!("     \x1b[36mfastly compute deploy\x1b[0m");
         }
         "spin" => {
+            println!("  0. Install required tools (if not installed):");
+            println!("     • Rust & Cargo:");
+            println!(
+                "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!("     • Spin CLI:");
+            println!(
+                "     \x1b[36mcurl -fsSL https://developer.fermyon.com/downloads/install.sh | bash\x1b[0m"
+            );
+            println!("     Or visit: https://developer.fermyon.com/spin/install");
+            println!();
             println!("  1. Build and start development server:");
             println!("     \x1b[36mspin build --up\x1b[0m");
             println!("  2. Or just start the server:");
@@ -161,7 +188,12 @@ fn print_project_next_steps(template: &str) {
             println!("     \x1b[36mspin deploy\x1b[0m");
         }
         _ => {
-            println!("  See the project README for next steps.");
+            unreachable!("  Unknown template: {}", template);
         }
     }
+
+    println!();
+    println!(
+        "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"
+    );
 }
