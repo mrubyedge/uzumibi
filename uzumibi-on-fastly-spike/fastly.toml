@@ -11,5 +11,11 @@ service_id = ""
 
 [local_server]
 
+[local_server.backends]
+
+[local_server.backends.uzumibi]
+url = "http://uzumibi.local-dev.udzura.jp:7676"
+
 [scripts]
-  build = "cargo build --profile release"
+build = "cargo build --profile release"
+post_init = "rustup target add wasm32-wasip1"
