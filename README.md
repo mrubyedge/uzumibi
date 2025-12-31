@@ -1,4 +1,4 @@
-Uzumini
+Uzumibi
 ==========
 
 Uzumibi is a lightweight web application framework for embedding MRuby into edge computing platforms like Cloudflare Workers, Fastly Compute@Edge, Spin and so on. It allows developers to write serverless applications using Ruby, leveraging the power of MRuby for efficient execution in constrained environments.
