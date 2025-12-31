@@ -89,8 +89,17 @@ fn copy_dir_recursive(
     // Copy all files in current directory
     for file in source.files() {
         let file_name = file.path().file_name().unwrap();
-        let target_file = target.join(file_name);
-        let display_path = relative_path.join(file_name);
+        let file_name_str = file_name.to_str().unwrap();
+
+        // Handle special case: Cargo.toml_ -> Cargo.toml
+        let actual_file_name = if file_name_str == "Cargo.toml_" {
+            "Cargo.toml"
+        } else {
+            file_name_str
+        };
+
+        let target_file = target.join(actual_file_name);
+        let display_path = relative_path.join(actual_file_name);
 
         let content = file.contents();
         let content_str = std::str::from_utf8(content);
@@ -108,7 +117,11 @@ fn copy_dir_recursive(
             }
         }
 
-        println!("  \x1b[1mgenerate\x1b[0m {}", display_path.display());
+        println!(
+            "  \x1b[1mgenerate\x1b[0m {}/{}",
+            project_name,
+            display_path.display()
+        );
     }
 
     // Recursively copy subdirectories
