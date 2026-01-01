@@ -17,4 +17,6 @@ url = "http://localhost:7676"
 
 [scripts]
 build = "cargo build --profile release"
+# if you have wasm-strip installed, you can uncomment the following line:
+# post_build = "wasm-strip target/wasm32-wasip1/release/$$PROJECT_NAME$$.wasm && wasm-strip bin/main.wasm"
 post_init = "rustup target add wasm32-wasip1"
