@@ -19,3 +19,9 @@ log = "0.4.29"
 
 [build-dependencies]
 mruby-compiler2-sys = ">= 0.2.2"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true
+strip = true
