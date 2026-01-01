@@ -9,6 +9,7 @@ static TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 #[derive(Parser)]
 #[command(name = "uzumibi")]
 #[command(about = "Uzumibi CLI - Create a new edge application project powered by Ruby", long_about = None)]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
