@@ -13,12 +13,12 @@
 //!
 use std::{collections::HashMap, rc::Rc};
 
-use mrubyedge::yamrb::{
+use mrubyedge::{Error, yamrb::{
     helpers::mrb_funcall,
     prelude::hash::{mrb_hash_new, mrb_hash_set_index},
     value::{RObject, RSym, RValue},
     vm::VM,
-};
+}};
 
 #[derive(Debug)]
 pub struct Request {
@@ -148,6 +148,40 @@ impl Request {
         request_obj.set_ivar(REQUEST_HEADERS_IVAR_KEY, headers_hash);
 
         request_obj
+    }
+
+    pub fn from_robject(_vm: &mut VM, obj: Rc<RObject>) -> Result<Self, Error> {
+        let method_obj = obj.get_ivar(REQUEST_METHOD_IVAR_KEY);
+        let method: String = method_obj
+            .as_ref()
+            .try_into()?;
+
+        let path_obj = obj.get_ivar(REQUEST_PATH_IVAR_KEY);
+        let path: String = path_obj
+            .as_ref()
+            .try_into()?;
+
+        let headers_obj = obj.get_ivar(REQUEST_HEADERS_IVAR_KEY);
+        let mut headers = HashMap::new();
+        match &headers_obj.value {
+            RValue::Hash(h) => {
+                let headers_hash = h.borrow();
+                for (_, (key_obj, value_obj)) in headers_hash.iter() {
+                    let key: String = key_obj
+                        .as_ref()
+                        .try_into()?;
+                    let value: String = value_obj
+                        .as_ref()
+                        .try_into()?;
+                    headers.insert(key, value);
+                }
+            },
+            _ => {
+                return Err(Error::RuntimeError("headers must be a Hash".to_string()));
+            }
+        };
+
+        Ok(Self { method, path, headers })
     }
 }
 

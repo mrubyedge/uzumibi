@@ -26,8 +26,9 @@ extern crate mrubyedge;
 ///   module Uzumibi
 ///     class Router
 ///       def self.routes() -> Hash
-///       def self.get(path, handler) -> path
-///       def initialize_request(size) -> SharedMemory
+///       def self.get(path: String, handler: Proc) -> String
+///       def initialize_request(size: Integer) -> SharedMemory
+///       def set_request(request: Request)
 ///       def start_request() -> Response
 /// ```
 ///
@@ -59,6 +60,12 @@ pub fn init_uzumibi(vm: &mut VM) {
     mrb_define_cmethod(
         vm,
         router_class.clone(),
+        "set_request",
+        Box::new(uzumibi_set_request),
+    );
+    mrb_define_cmethod(
+        vm,
+        router_class.clone(),
         "start_request",
         Box::new(uzumibi_start_request),
     );
@@ -74,6 +81,7 @@ pub fn init_uzumibi(vm: &mut VM) {
 }
 
 const ROUTES_KEY: &str = "@_routes";
+const REQUEST_KEY: &str = "@_request";
 const REQUEST_BUF_KEY: &str = "@_request_buf";
 
 fn uzumibi_router_routes(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
@@ -111,10 +119,32 @@ fn uzumibi_initialize_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RO
     Ok(shared_memory)
 }
 
+fn uzumibi_set_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let request_obj = args.get(0).ok_or_else(|| {
+        Error::ArgumentError("Expected 1 argument: request object".to_string())
+    })?;
+    vm.getself()?
+        .set_ivar(REQUEST_KEY, request_obj.clone());
+    Ok(RObject::nil().to_refcount_assigned())
+}
+
 fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let app = vm.getself()?;
-    let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
-    let request = uzumibi_construct_request(request_buf)?;
+    let request_obj = app.get_ivar(REQUEST_KEY);
+    let request = match &request_obj.value {
+        RValue::Nil => {
+            let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
+            uzumibi_construct_request(request_buf)?
+        }
+        RValue::Instance(_) => {
+            Request::from_robject(vm, request_obj.clone())?
+        }
+        _ => {
+            return Err(Error::ArgumentError(
+                "Invalid request object".to_string(),
+            ));
+        }
+    };
 
     let self_class = mrb_funcall(vm, app.into(), "class", &[])?;
     let router_hash = self_class.get_ivar(ROUTES_KEY);
