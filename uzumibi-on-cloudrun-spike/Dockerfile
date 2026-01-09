@@ -2,6 +2,9 @@ FROM rust:1.92 as builder
 
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get install -y clang libclang-dev build-essential curl
+
 RUN rm -rf src
 
 COPY build.rs ./
