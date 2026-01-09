@@ -81,6 +81,7 @@ pub fn init_uzumibi(vm: &mut VM) {
 }
 
 const ROUTES_KEY: &str = "@_routes";
+const REQUEST_KEY: &str = "@_request";
 const REQUEST_BUF_KEY: &str = "@_request_buf";
 
 fn uzumibi_router_routes(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
@@ -123,14 +124,27 @@ fn uzumibi_set_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>,
         Error::ArgumentError("Expected 1 argument: request object".to_string())
     })?;
     vm.getself()?
-        .set_ivar(REQUEST_BUF_KEY, request_obj.clone());
+        .set_ivar(REQUEST_KEY, request_obj.clone());
     Ok(RObject::nil().to_refcount_assigned())
 }
 
 fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let app = vm.getself()?;
-    let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
-    let request = uzumibi_construct_request(request_buf)?;
+    let request_obj = app.get_ivar(REQUEST_KEY);
+    let request = match &request_obj.value {
+        RValue::Nil => {
+            let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
+            uzumibi_construct_request(request_buf)?
+        }
+        RValue::Instance(_) => {
+            Request::from_robject(vm, request_obj.clone())?
+        }
+        _ => {
+            return Err(Error::ArgumentError(
+                "Invalid request object".to_string(),
+            ));
+        }
+    };
 
     let self_class = mrb_funcall(vm, app.into(), "class", &[])?;
     let router_hash = self_class.get_ivar(ROUTES_KEY);

@@ -1872,7 +1872,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "tokio",
- "uzumibi-gem 0.1.0-rc1",
+ "uzumibi-gem 0.1.0-rc2",
 ]
 
 [[package]]
