@@ -1,0 +1,10 @@
+[package]
+name = "uzumibi-on-cloudrun-spike"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hyper = { version = "1.5", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+tokio = { version = "1", features = ["full"] }
+http-body-util = "0.1"
