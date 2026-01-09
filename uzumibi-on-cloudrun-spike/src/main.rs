@@ -9,7 +9,9 @@ use tokio::net::TcpListener;
 
 pub mod uzumibi;
 
-async fn uzumibi_request(request: Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+async fn uzumibi_request(
+    request: Request<IncomingBody>,
+) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
     uzumibi::uzumibi_handle_request(&request)
 }
 
