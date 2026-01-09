@@ -4,7 +4,9 @@ WORKDIR /app
 
 RUN rm -rf src
 
+COPY build.rs ./
 COPY Cargo.toml ./
+COPY lib ./lib
 COPY src ./src
 RUN touch src/main.rs
 RUN cargo build --release
