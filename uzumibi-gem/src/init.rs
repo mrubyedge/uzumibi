@@ -26,8 +26,9 @@ extern crate mrubyedge;
 ///   module Uzumibi
 ///     class Router
 ///       def self.routes() -> Hash
-///       def self.get(path, handler) -> path
-///       def initialize_request(size) -> SharedMemory
+///       def self.get(path: String, handler: Proc) -> String
+///       def initialize_request(size: Integer) -> SharedMemory
+///       def set_request(request: Request)
 ///       def start_request() -> Response
 /// ```
 ///
@@ -56,6 +57,12 @@ pub fn init_uzumibi(vm: &mut VM) {
         Box::new(uzumibi_initialize_request),
     );
 
+    mrb_define_cmethod(
+        vm,
+        router_class.clone(),
+        "set_request",
+        Box::new(uzumibi_set_request),
+    );
     mrb_define_cmethod(
         vm,
         router_class.clone(),
@@ -109,6 +116,15 @@ fn uzumibi_initialize_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RO
     vm.getself()?
         .set_ivar(REQUEST_BUF_KEY, shared_memory.clone());
     Ok(shared_memory)
+}
+
+fn uzumibi_set_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let request_obj = args.get(0).ok_or_else(|| {
+        Error::ArgumentError("Expected 1 argument: request object".to_string())
+    })?;
+    vm.getself()?
+        .set_ivar(REQUEST_BUF_KEY, request_obj.clone());
+    Ok(RObject::nil().to_refcount_assigned())
 }
 
 fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
