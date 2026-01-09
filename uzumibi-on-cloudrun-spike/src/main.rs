@@ -8,6 +8,8 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
+pub mod uzumibi;
+
 async fn hello(_: Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Infallible> {
     Ok(Response::new(Full::new(Bytes::from(
         "Hello from Cloud Run!",

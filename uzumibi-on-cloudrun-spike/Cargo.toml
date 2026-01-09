@@ -2,9 +2,17 @@
 name = "uzumibi-on-cloudrun-spike"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
+mrubyedge = { version = "1.0.15", features = [
+    "wasi",
+], default-features = false }
+uzumibi-gem = "0.1.0-rc1"
 hyper = { version = "1.5", features = ["full"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }
 http-body-util = "0.1"
+
+[build-dependencies]
+mruby-compiler2-sys = ">= 0.2.2"

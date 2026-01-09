@@ -1869,7 +1869,10 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "mruby-compiler2-sys",
+ "mrubyedge",
  "tokio",
+ "uzumibi-gem 0.1.0-rc1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
