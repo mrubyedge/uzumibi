@@ -52,7 +52,7 @@ fn init_vm() -> VM {
     vm
 }
 
-pub fn uzumibi_handle_request(request: &Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error>> {
+pub fn uzumibi_handle_request(request: &Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
     let mut vm = init_vm();
     let app = vm
         .globals
@@ -70,13 +70,13 @@ pub fn uzumibi_handle_request(request: &Request<IncomingBody>) -> Result<Respons
         Some(app.clone()),
         "set_request",
         &[request_robject],
-    )?;
+    ).map_err(|e| e.to_string())?;
     let response_robject = mrb_funcall(
         &mut vm,
         Some(app.clone()),
         "start_request",
         &[],
-    )?;
+    ).map_err(|e| e.to_string())?;
     build_response_from_robject(&mut vm, response_robject)
 }
 
@@ -97,26 +97,26 @@ pub fn build_request_as_robject(vm: &mut VM, request: &Request<IncomingBody>) ->
     request.into_robject(vm)
 }
 
-pub fn build_response_from_robject(vm: &mut VM, response: Rc<RObject>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error>> {
+pub fn build_response_from_robject(vm: &mut VM, response: Rc<RObject>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
     let status_code: u32 = {
-        let status_obj = mrb_funcall(vm, response.clone().into(), "status_code", &[])?;
-        status_obj.as_ref().try_into()?
+        let status_obj = mrb_funcall(vm, response.clone().into(), "status_code", &[]).map_err(|e| e.to_string())?;
+        status_obj.as_ref().try_into().map_err(|e: mrubyedge::Error| e.to_string())?
     };
     let headers: Vec<_> = {
-        let headers_obj = mrb_funcall(vm, response.clone().into(), "headers", &[])?;
-        headers_obj.as_ref().try_into()?
+        let headers_obj = mrb_funcall(vm, response.clone().into(), "headers", &[]).map_err(|e| e.to_string())?;
+        headers_obj.as_ref().try_into().map_err(|e: mrubyedge::Error| e.to_string())?
     };
     let body = {
-        let body_obj = mrb_funcall(vm, response.clone().into(), "body", &[])?;
-        let body_str: String = body_obj.as_ref().try_into()?;
+        let body_obj = mrb_funcall(vm, response.clone().into(), "body", &[]).map_err(|e| e.to_string())?;
+        let body_str: String = body_obj.as_ref().try_into().map_err(|e: mrubyedge::Error| e.to_string())?;
         body_str.into_bytes()
     };
 
     let builder = Response::builder();
     let mut response = builder.status(status_code as u16);
     for (key, value) in headers {
-        let key: String = key.as_ref().try_into()?;
-        let value: String = value.as_ref().try_into()?;
+        let key: String = key.as_ref().try_into().map_err(|e: mrubyedge::Error| e.to_string())?;
+        let value: String = value.as_ref().try_into().map_err(|e: mrubyedge::Error| e.to_string())?;
         response = response.header(&key, &value);
     }
     let res = response.body(Full::new(Bytes::from(body)))?;

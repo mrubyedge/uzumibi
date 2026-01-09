@@ -4,16 +4,13 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
 use hyper_util::rt::TokioIo;
-use std::convert::Infallible;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 pub mod uzumibi;
 
-async fn hello(_: Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Infallible> {
-    Ok(Response::new(Full::new(Bytes::from(
-        "Hello from Cloud Run!",
-    ))))
+async fn uzumibi_request(request: Request<IncomingBody>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    uzumibi::uzumibi_handle_request(&request)
 }
 
 #[tokio::main]
@@ -30,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         tokio::task::spawn(async move {
             if let Err(err) = http1::Builder::new()
-                .serve_connection(io, service_fn(hello))
+                .serve_connection(io, service_fn(uzumibi_request))
                 .await
             {
                 eprintln!("Error serving connection: {:?}", err);
