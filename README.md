@@ -46,11 +46,14 @@ Crates and projects
 -----------------
 
 - [**uzumibi-cli**](./uzumibi-cli/) - A command-line interface tool to generate Uzumibi application scaffolds to various edge platforms.
+    - ![crates.io](https://img.shields.io/crates/v/uzumibi-cli.svg)
 - [**uzumibi-gem**](./uzumibi-gem/) - The mruby/edge gem that provides the core Uzumibi framework functionality.
+    - ![crates.io](https://img.shields.io/crates/v/uzumibi-gem.svg)
 
 ### Spike codes
 
 - [**uzumibi-on-cloudflare-spike**](./uzumibi-on-cloudflare-spike/) - An Uzumibi application scaffold for Cloudflare Workers (using Spin).
+- [**uzumibi-on-cloudrun-spike**](./uzumibi-on-cloudrun-spike/) - An Uzumibi application scaffold for Google Cloud Run. Experimental.
 - [**uzumibi-on-fastly-spike**](./uzumibi-on-fastly-spike/) - An Uzumibi application scaffold for Fastly Compute@Edge.
 - [**uzumibi-on-spin-spike**](./uzumibi-on-spin-spike/) - An Uzumibi application scaffold for Spin using Fermyon Cloud.
 
