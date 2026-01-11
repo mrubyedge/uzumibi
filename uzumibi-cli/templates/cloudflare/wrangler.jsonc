@@ -8,7 +8,7 @@
 	"main": "src/index.js",
 	"compatibility_date": "2025-12-30",
 	"observability": {
-		"enabled": false
+		"enabled": true
 	}
 	/**
 	 * Smart Placement
