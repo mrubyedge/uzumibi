@@ -12,7 +12,8 @@ pub mod uzumibi;
 async fn uzumibi_request(
     request: Request<IncomingBody>,
 ) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-    uzumibi::uzumibi_handle_request(&request)
+    let res = uzumibi::uzumibi_handle_request(&request)?;
+    Ok(res)
 }
 
 #[tokio::main]

@@ -8,6 +8,7 @@ use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
 use mrubyedge::{
+    error::StaticError,
     rite::rite,
     yamrb::{
         helpers::{mrb_define_cmethod, mrb_funcall},
@@ -54,7 +55,7 @@ fn init_vm() -> VM {
 
 pub fn uzumibi_handle_request(
     request: &Request<IncomingBody>,
-) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
     let mut vm = init_vm();
     let app = vm
         .globals
@@ -63,7 +64,7 @@ pub fn uzumibi_handle_request(
             debug_console_log_internal("$APP is not defined");
             None
         })
-        .unwrap()
+        .ok_or_else(|| mrubyedge::error::StaticError::General("$APP is not defined".into()))?
         .clone();
 
     let request_robject = build_request_as_robject(&mut vm, request);
@@ -73,9 +74,9 @@ pub fn uzumibi_handle_request(
         "set_request",
         &[request_robject],
     )
-    .map_err(|e| e.to_string())?;
-    let response_robject =
-        mrb_funcall(&mut vm, Some(app.clone()), "start_request", &[]).map_err(|e| e.to_string())?;
+    .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?;
+    let response_robject = mrb_funcall(&mut vm, Some(app.clone()), "start_request", &[])
+        .map_err::<StaticError, _>(|e| e.into())?;
     build_response_from_robject(&mut vm, response_robject)
 }
 
@@ -103,30 +104,30 @@ pub fn build_request_as_robject(vm: &mut VM, request: &Request<IncomingBody>) ->
 pub fn build_response_from_robject(
     vm: &mut VM,
     response: Rc<RObject>,
-) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
     let status_code: u32 = {
         let status_obj = mrb_funcall(vm, response.clone().into(), "status_code", &[])
-            .map_err(|e| e.to_string())?;
+            .map_err::<StaticError, _>(|e| e.into())?;
         status_obj
             .as_ref()
             .try_into()
-            .map_err(|e: mrubyedge::Error| e.to_string())?
+            .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?
     };
     let headers: Vec<_> = {
-        let headers_obj =
-            mrb_funcall(vm, response.clone().into(), "headers", &[]).map_err(|e| e.to_string())?;
+        let headers_obj = mrb_funcall(vm, response.clone().into(), "headers", &[])
+            .map_err::<StaticError, _>(|e| e.into())?;
         headers_obj
             .as_ref()
             .try_into()
-            .map_err(|e: mrubyedge::Error| e.to_string())?
+            .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?
     };
     let body = {
-        let body_obj =
-            mrb_funcall(vm, response.clone().into(), "body", &[]).map_err(|e| e.to_string())?;
+        let body_obj = mrb_funcall(vm, response.clone().into(), "body", &[])
+            .map_err::<StaticError, _>(|e| e.into())?;
         let body_str: String = body_obj
             .as_ref()
             .try_into()
-            .map_err(|e: mrubyedge::Error| e.to_string())?;
+            .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?;
         body_str.into_bytes()
     };
 
@@ -136,13 +137,15 @@ pub fn build_response_from_robject(
         let key: String = key
             .as_ref()
             .try_into()
-            .map_err(|e: mrubyedge::Error| e.to_string())?;
+            .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?;
         let value: String = value
             .as_ref()
             .try_into()
-            .map_err(|e: mrubyedge::Error| e.to_string())?;
+            .map_err::<StaticError, _>(|e: mrubyedge::Error| e.into())?;
         response = response.header(&key, &value);
     }
-    let res = response.body(Full::new(Bytes::from(body)))?;
+    let res = response
+        .body(Full::new(Bytes::from(body)))
+        .map_err(|e| StaticError::General(format!("{}", e)))?;
     Ok(res)
 }
