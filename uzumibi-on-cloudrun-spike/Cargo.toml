@@ -5,10 +5,10 @@ edition = "2021"
 publish = false
 
 [dependencies]
-mrubyedge = { version = "1.0.17-rc1", features = [
-    "wasi",
+mrubyedge = { version = ">= 1.0.18", features = [
+    "no-wasi",
 ], default-features = false }
-uzumibi-gem = "0.1.0-rc2"
+uzumibi-gem = "0.1.0"
 hyper = { version = "1.5", features = ["full"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 tokio = { version = "1", features = ["full"] }

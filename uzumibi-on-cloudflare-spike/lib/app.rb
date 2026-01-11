@@ -14,6 +14,15 @@ class App < Uzumibi::Router
       "to keep the fire from going out.\n"
     res
   end
+
+  get "/healthz" do |req, res|
+    res.status_code = 200
+    res.headers = {
+      "Content-Type" => "application/json",
+    }
+    res.body = "{\"status\":\"ok\"}\n"
+    res
+  end
 end
 
 $APP = App.new

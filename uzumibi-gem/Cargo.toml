@@ -7,7 +7,7 @@ description = "Uzumibi is a mruby/edge gem for serverless environment"
 license = "BSD-3-Clause"
 
 [dependencies]
-mrubyedge = { version = ">= 1.0.17", features = [
+mrubyedge = { version = ">= 1.0.18", features = [
     "no-wasi",
 ], default-features = false }
 

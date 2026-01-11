@@ -9,7 +9,7 @@ use mrubyedge::{
     rite::rite,
     yamrb::{
         helpers::{mrb_define_cmethod, mrb_funcall},
-        value::RObject,
+        value::{RObject, RValue},
         vm::VM,
     },
 };
@@ -118,11 +118,11 @@ unsafe extern "C" fn uzumibi_start_request() -> *mut u8 {
         e
     })
     .unwrap();
-    ret.as_ref()
-        .try_into()
-        .map_err(|e: Error| {
-            debug_console_log_internal(&format!("Error converting to pointer: {}", e));
-            e
-        })
-        .unwrap()
+    match &ret.as_ref().value {
+        RValue::SharedMemory(sm) => sm.borrow_mut().leak(),
+        _ => {
+            debug_console_log_internal("Error: Returned value is not SharedMemory");
+            std::ptr::null_mut()
+        }
+    }
 }
