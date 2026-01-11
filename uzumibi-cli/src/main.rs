@@ -76,7 +76,7 @@ fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std:
         template
     );
     println!("  Run 'cd {}' to get started!", project_name);
-    print_project_next_steps(template);
+    print_project_next_steps(template, project_name);
 
     Ok(())
 }
@@ -146,7 +146,7 @@ fn substitute_project_name(content: &str, project_name: &str) -> String {
         .replace("$$PROJECT_NAME_UNDERSCORE$$", &project_name_underscore)
 }
 
-fn print_project_next_steps(template: &str) {
+fn print_project_next_steps(template: &str, project_name: &str) {
     println!("\nNext steps:");
     match template {
         "cloudflare" => {
@@ -164,6 +164,28 @@ fn print_project_next_steps(template: &str) {
             println!("     \x1b[36mpnpm run dev\x1b[0m");
             println!("  3. Deploy to Cloudflare:");
             println!("     \x1b[36mpnpm run deploy\x1b[0m");
+        }
+        "cloudrun" => {
+            println!("  0. Install required tools and setup account:");
+            println!("     • Docker:");
+            println!("     Visit: https://docs.docker.com/get-docker/");
+            println!("     • Google Cloud SDK:");
+            println!("     Visit: https://cloud.google.com/sdk/docs/install");
+            println!("     • Grant IAM role (if required):");
+            println!(
+                "     Set \x1b[33mCloud Run Developer\x1b[0m role to the default service account"
+            );
+            println!("     Visit: https://cloud.google.com/run/docs/securing/service-identity");
+            println!();
+            println!("  1. Build the project:");
+            println!("     \x1b[36mdocker build -t {} .\x1b[0m", project_name);
+            println!("  2. Test locally (optional):");
+            println!(
+                "     \x1b[36mdocker run -p 8080:8080 {}\x1b[0m",
+                project_name
+            );
+            println!("  3. Deploy to Cloud Run:");
+            println!("     \x1b[36mgcloud run deploy --source . --platform managed\x1b[0m");
         }
         "fastly" => {
             println!("  0. Install required tools (if not installed):");
