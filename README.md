@@ -52,7 +52,7 @@ Crates and projects
 
 ### Spike codes
 
-- [**uzumibi-on-cloudflare-spike**](./uzumibi-on-cloudflare-spike/) - An Uzumibi application scaffold for Cloudflare Workers (using Spin).
+- [**uzumibi-on-cloudflare-spike**](./uzumibi-on-cloudflare-spike/) - An Uzumibi application scaffold for Cloudflare Workers (using Wasm with some JavaScript).
 - [**uzumibi-on-cloudrun-spike**](./uzumibi-on-cloudrun-spike/) - An Uzumibi application scaffold for Google Cloud Run. Experimental.
 - [**uzumibi-on-fastly-spike**](./uzumibi-on-fastly-spike/) - An Uzumibi application scaffold for Fastly Compute@Edge.
 - [**uzumibi-on-spin-spike**](./uzumibi-on-spin-spike/) - An Uzumibi application scaffold for Spin using Fermyon Cloud.
