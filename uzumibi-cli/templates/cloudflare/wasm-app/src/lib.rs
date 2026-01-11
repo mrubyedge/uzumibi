@@ -9,7 +9,7 @@ use mrubyedge::{
     rite::rite,
     yamrb::{
         helpers::{mrb_define_cmethod, mrb_funcall},
-        value::RObject,
+        value::{RObject, RValue},
         vm::VM,
     },
 };
