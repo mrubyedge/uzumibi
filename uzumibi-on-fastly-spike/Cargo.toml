@@ -11,10 +11,10 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mrubyedge = { version = "1.0.17-rc1", features = [
-    "wasi",
+mrubyedge = { version = ">= 1.0.18", features = [
+    "no-wasi",
 ], default-features = false }
-uzumibi-gem = "0.1.0-rc2"
+uzumibi-gem = "0.1.0"
 fastly = "0.11.0"
 log-fastly = "0.11.12"
 log = "0.4.29"

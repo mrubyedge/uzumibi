@@ -120,11 +120,10 @@ fn uzumibi_initialize_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RO
 }
 
 fn uzumibi_set_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
-    let request_obj = args.get(0).ok_or_else(|| {
-        Error::ArgumentError("Expected 1 argument: request object".to_string())
-    })?;
-    vm.getself()?
-        .set_ivar(REQUEST_KEY, request_obj.clone());
+    let request_obj = args
+        .get(0)
+        .ok_or_else(|| Error::ArgumentError("Expected 1 argument: request object".to_string()))?;
+    vm.getself()?.set_ivar(REQUEST_KEY, request_obj.clone());
     Ok(RObject::nil().to_refcount_assigned())
 }
 
@@ -136,13 +135,9 @@ fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
             let request_buf = vm.getself()?.get_ivar(REQUEST_BUF_KEY);
             uzumibi_construct_request(request_buf)?
         }
-        RValue::Instance(_) => {
-            Request::from_robject(vm, request_obj.clone())?
-        }
+        RValue::Instance(_) => Request::from_robject(vm, request_obj.clone())?,
         _ => {
-            return Err(Error::ArgumentError(
-                "Invalid request object".to_string(),
-            ));
+            return Err(Error::ArgumentError("Invalid request object".to_string()));
         }
     };
 
@@ -154,6 +149,13 @@ fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
 
     let key = RObject::string(request.path.clone()).to_refcount_assigned();
     let route = mrb_hash_get_index(router_hash, key)?;
+    if matches!(route.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(format!(
+            "No route found for path: {}",
+            request.path
+        )));
+    }
+
     if matches!(route.as_ref().value, RValue::Proc(_)) {
         let request = request.into_robject(vm);
         let response = uzumibi_response_new(vm);
