@@ -149,12 +149,6 @@ fn uzumibi_start_request(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
 
     let key = RObject::string(request.path.clone()).to_refcount_assigned();
     let route = mrb_hash_get_index(router_hash, key)?;
-    if matches!(route.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(format!(
-            "No route found for path: {}",
-            request.path
-        )));
-    }
 
     if matches!(route.as_ref().value, RValue::Proc(_)) {
         let request = request.into_robject(vm);
