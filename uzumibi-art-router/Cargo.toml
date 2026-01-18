@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+mrubyedge = { version = ">= 1.0.18", features = [
+    "no-wasi",
+], default-features = false }
 
 [dev-dependencies]
 rand = "0.8.4"

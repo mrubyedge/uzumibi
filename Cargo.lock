@@ -1771,6 +1771,7 @@ dependencies = [
 name = "uzumibi-art-router"
 version = "0.1.0"
 dependencies = [
+ "mrubyedge",
  "rand 0.8.5",
 ]
 
