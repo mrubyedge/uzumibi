@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["uzumibi-art-router",
     "uzumibi-cli",
     "uzumibi-gem",
     "uzumibi-on-cloudflare-spike/wasm-app",
