@@ -79,6 +79,25 @@ fn test_art_router_match_params() -> Result<(), mrubyedge::Error> {
 }
 
 #[test]
+fn test_art_router_match_params_normalize() -> Result<(), mrubyedge::Error> {
+    let code = r#"
+    art = Uzumibi::ArtRouter.new
+    art.set_route "/users/:id" do |uid|
+      "User id: " + uid
+    end
+    route, params = *art.get_route("/users//127/")
+    route.call(params[:id])
+    "#;
+    let mut vm = compile_vm(code)?;
+    let ret = vm
+        .run()
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to run script: {}", e)))?;
+    let ret: String = ret.as_ref().try_into()?;
+    assert_eq!(ret, "User id: 127");
+    Ok(())
+}
+
+#[test]
 fn test_art_router_match_params_nest() -> Result<(), mrubyedge::Error> {
     let code = r#"
     art = Uzumibi::ArtRouter.new

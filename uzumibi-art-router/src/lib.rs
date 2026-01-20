@@ -36,6 +36,23 @@ fn get_uzumibi_art_router_class(vm: &mut VM) -> Rc<RClass> {
     }
 }
 
+fn url_path_normalize(path: &str) -> String {
+    let mut normalized = path.trim().to_string();
+    if !normalized.starts_with('/') {
+        normalized = format!("/{}", normalized);
+    }
+
+    // 連続する '/' を1つにまとめる
+    while normalized.contains("//") {
+        normalized = normalized.replace("//", "/");
+    }
+
+    if normalized.len() > 1 && normalized.ends_with('/') {
+        normalized.pop();
+    }
+    normalized
+}
+
 pub fn init_uzumibi_art_router(vm: &mut VM) {
     let uzumibi = vm
         .get_const_by_name("Uzumibi")
@@ -135,6 +152,7 @@ fn uzumibi_art_router_get_route(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<
         }
     };
     let path: String = path_obj.as_ref().try_into()?;
+    let path = url_path_normalize(&path);
     let self_obj = vm.getself()?;
     let data = match &self_obj.value {
         RValue::Data(d) => d,
