@@ -9,4 +9,9 @@ mrubyedge = { version = ">= 1.0.18", features = [
 ], default-features = false }
 
 [dev-dependencies]
+mrubyedge = { version = ">= 1.0.18", features = [
+    "wasi",
+], default-features = false }
 rand = "0.8.4"
+mruby-compiler2-sys = ">= 0.2.2"
+uzumibi-gem = ">= 0"

@@ -11,7 +11,8 @@ use mrubyedge::{
     Error,
     yamrb::{
         helpers::{mrb_define_class_cmethod, mrb_define_cmethod},
-        value::{RClass, RData, RObject, RType, RValue},
+        prelude::hash::{mrb_hash_new, mrb_hash_set_index},
+        value::{RClass, RData, RObject, RSym, RType, RValue},
         vm::VM,
     },
 };
@@ -150,14 +151,22 @@ fn uzumibi_art_router_get_route(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<
     let store = store_any
         .downcast_ref::<store::RouteStore<Rc<RObject>>>()
         .ok_or_else(|| Error::RuntimeError("Failed to downcast RouteStore".to_string()))?;
-    if let Some(route) = store.get(&path) {
+    if let (Some(route), params) = store.get_with_params(&path) {
         match &route.value {
-            RValue::Proc(_) => Ok(route.clone()),
+            RValue::Proc(_) => {
+                let hash = mrb_hash_new(vm, &[])?;
+                for (k, v) in params.iter() {
+                    let key = RObject::symbol(RSym::new(k.to_owned())).to_refcount_assigned();
+                    let value = RObject::string(v.to_owned()).to_refcount_assigned();
+                    mrb_hash_set_index(hash.clone(), key, value)?;
+                }
+                Ok(RObject::array(vec![route.clone(), hash]).to_refcount_assigned())
+            }
             _ => Err(Error::RuntimeError(
                 "Route is not a callable Proc".to_string(),
             )),
         }
     } else {
-        Ok(RObject::nil().to_refcount_assigned())
+        Ok(RObject::array(vec![]).to_refcount_assigned())
     }
 }
