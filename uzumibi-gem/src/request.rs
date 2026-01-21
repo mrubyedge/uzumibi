@@ -13,27 +13,33 @@
 //!
 use std::{collections::HashMap, rc::Rc};
 
-use mrubyedge::{Error, yamrb::{
-    helpers::mrb_funcall,
-    prelude::hash::{mrb_hash_new, mrb_hash_set_index},
-    value::{RObject, RSym, RValue},
-    vm::VM,
-}};
+use mrubyedge::{
+    Error,
+    yamrb::{
+        helpers::mrb_funcall,
+        prelude::hash::{mrb_hash_new, mrb_hash_set_index},
+        value::{RObject, RSym, RValue},
+        vm::VM,
+    },
+};
 
 #[derive(Debug)]
 pub struct Request {
     pub method: String,
     pub path: String,
     pub headers: HashMap<String, String>,
+    pub params: HashMap<String, String>,
 }
 
 const REQUEST_METHOD_KEY: &str = "method";
 const REQUEST_PATH_KEY: &str = "path";
 const REQUEST_HEADERS_KEY: &str = "headers";
+const REQUEST_PARAMS_KEY: &str = "params";
 
 const REQUEST_METHOD_IVAR_KEY: &str = "@method";
 const REQUEST_PATH_IVAR_KEY: &str = "@path";
 const REQUEST_HEADERS_IVAR_KEY: &str = "@headers";
+const REQUEST_PARAMS_IVAR_KEY: &str = "@params";
 
 pub(crate) fn init_uzumibi_request(vm: &mut VM) {
     let uzumibi = vm
@@ -65,6 +71,13 @@ pub(crate) fn init_uzumibi_request(vm: &mut VM) {
         Some(request_class.clone()),
         "attr_accessor",
         &[as_sym(REQUEST_HEADERS_KEY)],
+    )
+    .expect("attr_accessor failed");
+    mrb_funcall(
+        vm,
+        Some(request_class.clone()),
+        "attr_accessor",
+        &[as_sym(REQUEST_PARAMS_KEY)],
     )
     .expect("attr_accessor failed");
 }
@@ -122,6 +135,7 @@ impl Request {
             method,
             path,
             headers,
+            params: HashMap::new(),
         }
     }
 
@@ -146,20 +160,26 @@ impl Request {
             .expect("Failed to set header");
         }
         request_obj.set_ivar(REQUEST_HEADERS_IVAR_KEY, headers_hash);
+        let params_hash = mrb_hash_new(vm, &[]).expect("Failed to create params hash");
+        for (key, value) in self.params {
+            mrb_hash_set_index(
+                params_hash.clone(),
+                RObject::symbol(RSym::new(key)).to_refcount_assigned(),
+                RObject::string(value).to_refcount_assigned(),
+            )
+            .expect("Failed to set param");
+        }
+        request_obj.set_ivar(REQUEST_PARAMS_IVAR_KEY, params_hash);
 
         request_obj
     }
 
     pub fn from_robject(_vm: &mut VM, obj: Rc<RObject>) -> Result<Self, Error> {
         let method_obj = obj.get_ivar(REQUEST_METHOD_IVAR_KEY);
-        let method: String = method_obj
-            .as_ref()
-            .try_into()?;
+        let method: String = method_obj.as_ref().try_into()?;
 
         let path_obj = obj.get_ivar(REQUEST_PATH_IVAR_KEY);
-        let path: String = path_obj
-            .as_ref()
-            .try_into()?;
+        let path: String = path_obj.as_ref().try_into()?;
 
         let headers_obj = obj.get_ivar(REQUEST_HEADERS_IVAR_KEY);
         let mut headers = HashMap::new();
@@ -167,21 +187,39 @@ impl Request {
             RValue::Hash(h) => {
                 let headers_hash = h.borrow();
                 for (_, (key_obj, value_obj)) in headers_hash.iter() {
-                    let key: String = key_obj
-                        .as_ref()
-                        .try_into()?;
-                    let value: String = value_obj
-                        .as_ref()
-                        .try_into()?;
+                    let key: String = key_obj.as_ref().try_into()?;
+                    let value: String = value_obj.as_ref().try_into()?;
                     headers.insert(key, value);
                 }
-            },
+            }
             _ => {
                 return Err(Error::RuntimeError("headers must be a Hash".to_string()));
             }
         };
 
-        Ok(Self { method, path, headers })
+        let params_obj = obj.get_ivar(REQUEST_PARAMS_IVAR_KEY);
+        let mut params = HashMap::new();
+        match &params_obj.value {
+            RValue::Hash(h) => {
+                let params_hash = h.borrow();
+                for (_, (key_obj, value_obj)) in params_hash.iter() {
+                    let key: String = key_obj.as_ref().try_into()?;
+                    let value: String = value_obj.as_ref().try_into()?;
+                    params.insert(key, value);
+                }
+            }
+            RValue::Nil => {}
+            _ => {
+                return Err(Error::RuntimeError("params must be a Hash".to_string()));
+            }
+        };
+
+        Ok(Self {
+            method,
+            path,
+            headers,
+            params,
+        })
     }
 }
 

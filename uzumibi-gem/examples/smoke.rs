@@ -14,6 +14,13 @@ class App < Uzumibi::Router
     res.headers = { "Content-Type" => "text/plain" }
     res.body = "Hello, Uzumibi!"
   end
+
+  get "/users/:id" do |req, res|
+    p req.path
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Hello, User #{req.params[:id]}!"
+  end
 end
 
 router = App.new
@@ -21,10 +28,11 @@ p router
 
 sm = router.initialize_request(1024)
 p sm
+path = "/users/42"
 buf = "GET"
 buf += [0, 0, 0].pack("CCC")  # buffer
-buf += [1].pack("S")  # path size
-buf += "/"
+buf += [path.size].pack("S")  # path size
+buf += path
 buf += [2].pack("S")  # headers size
 buf += [4].pack("S")  # header 1 key size
 buf += "Host"
@@ -36,8 +44,8 @@ buf += [3].pack("S")  # header 2 value size
 buf += "*/*"
 sm.replace(buf)
 
-response = router.start_request_and_return_shared_memory
-p response
+response = router.start_request
+puts response.body
 "#;
 
 fn main() -> Result<(), mrubyedge::Error> {
