@@ -12,15 +12,12 @@ Ruby code example for Uzumibi:
 ```ruby
 class App < Uzumibi::Router
   get "/" do |req, res|
-    debug_console("[Uzumibi] Received request at /")
-    debug_console("[Uzumibi] Requested UA: #{req.headers["user-agent"]}")
-
     res.status_code = 200
     res.headers = {
       "content-type" => "text/plain",
       "x-powered-by" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
     }
-    res.body = "Hello from edges!\n"
+    res.body = "It works!\nVisit /greet/to/:name to get greeted.\n"
     res
   end
 
@@ -33,6 +30,26 @@ class App < Uzumibi::Router
       "\"Uzumibi\" is a Japanese term that refers\n" +
       "to live embers buried under a layer of ash\n" +
       "to keep the fire from going out.\n"
+    res
+  end
+
+  get "/greet/to/:name" do |req, res|
+    res.status_code = 200
+    res.headers = {
+      "content-type" => "text/plain",
+      "x-powered-by" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
+    }
+    res.body = "Hello, #{req.params[:name]}!!\n"
+    res
+  end
+
+  get "/hello/:name" do |req, res|
+    res.status_code = 302
+    res.headers = {
+      "location" => "/greet/to/#{req.params[:name]}",
+      "content-type" => "text/plain",
+    }
+    res.body = "Moved\n"
     res
   end
 end
@@ -49,6 +66,8 @@ Crates and projects
     - ![crates.io](https://img.shields.io/crates/v/uzumibi-cli.svg)
 - [**uzumibi-gem**](./uzumibi-gem/) - The mruby/edge gem that provides the core Uzumibi framework functionality.
     - ![crates.io](https://img.shields.io/crates/v/uzumibi-gem.svg)
+- [**uzumibi-art-router**](./uzumibi-art-router/) - A lightweight router library for Uzumibi, providing routing capabilities for handling HTTP requests.
+    - ![crates.io](https://img.shields.io/crates/v/uzumibi-art-router.svg)
 
 ### Spike codes
 
