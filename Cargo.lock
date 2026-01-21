@@ -1778,6 +1778,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-art-router"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cc2a47d23a240a6281d60752d594d2852cbbf43ae1e85691076e74fc2b10f69"
+dependencies = [
+ "mrubyedge",
+]
+
+[[package]]
 name = "uzumibi-cli"
 version = "0.1.0"
 dependencies = [
@@ -1791,6 +1800,7 @@ version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
+ "uzumibi-art-router 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
