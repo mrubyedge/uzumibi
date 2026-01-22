@@ -46,7 +46,7 @@ buf = "GET"
 buf += [0, 0, 0].pack("CCC")
 buf += ["/users/123".size].pack("S")
 buf += "/users/123"
-buf += [0].pack("S")
+buf += [0, 0, 0].pack("SSL")
 sm.replace(buf)
 response = router.start_request
 puts "Status: " + response.status_code.to_s
@@ -59,7 +59,7 @@ buf = "POST"
 buf += [0, 0].pack("CC")
 buf += ["/users".size].pack("S")
 buf += "/users"
-buf += [0].pack("S")
+buf += [0, 0, 0].pack("SSL")
 sm.replace(buf)
 response = router.start_request
 puts "Status: " + response.status_code.to_s
@@ -72,7 +72,7 @@ buf = "PUT"
 buf += [0, 0, 0].pack("CCC")
 buf += ["/users/456".size].pack("S")
 buf += "/users/456"
-buf += [0].pack("S")
+buf += [0, 0, 0].pack("SSL")
 sm.replace(buf)
 response = router.start_request
 puts "Status: " + response.status_code.to_s
@@ -84,7 +84,7 @@ sm = router.initialize_request(1024)
 buf = "DELETE"
 buf += ["/users/789".size].pack("S")
 buf += "/users/789"
-buf += [0].pack("S")
+buf += [0, 0, 0].pack("SSL")
 sm.replace(buf)
 response = router.start_request
 puts "Status: " + response.status_code.to_s
@@ -97,7 +97,7 @@ buf = "HEAD"
 buf += [0, 0].pack("CC")
 buf += ["/users/999".size].pack("S")
 buf += "/users/999"
-buf += [0].pack("S")
+buf += [0, 0, 0].pack("SSL")
 sm.replace(buf)
 response = router.start_request
 puts "Status: " + response.status_code.to_s

@@ -27,7 +27,9 @@ use mrubyedge::{
 pub struct Request {
     pub method: String,
     pub path: String,
+    pub query_string: String,
     pub headers: HashMap<String, String>,
+    pub body: Vec<u8>,
     pub params: HashMap<String, String>,
 }
 
@@ -89,6 +91,7 @@ fn as_sym(name: impl Into<String>) -> Rc<RObject> {
 
 impl Request {
     pub fn new_from_buffer(buf: &[u8]) -> Self {
+        // Parse Method (6 bytes)
         let mut method = String::new();
         for &b in &buf[..6] {
             if b == 0 {
@@ -96,45 +99,66 @@ impl Request {
             }
             method.push(b as char);
         }
-        let buf = &buf[6..];
-        let path_size = u16::from_le_bytes([buf[0], buf[1]]);
-        let buf = &buf[2..];
-        let path: String = buf[0..path_size as usize]
+        let mut offset = 6;
+
+        // Parse Path size (u16) + Path
+        let path_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2;
+        let path: String = buf[offset..offset + path_size]
             .iter()
             .map(|&b| b as char)
             .collect();
-        let buf = &buf[path_size as usize..];
+        offset += path_size;
 
-        let headers_size = u16::from_le_bytes([buf[0], buf[1]]);
-        let buf = &buf[2..];
+        // Parse Query String size (u16) + Query String
+        let query_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2;
+        let query_string: String = buf[offset..offset + query_size]
+            .iter()
+            .map(|&b| b as char)
+            .collect();
+        offset += query_size;
+
+        // Parse Headers count (u16) + Headers
+        let headers_count = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2;
         let mut headers = HashMap::new();
+        for _ in 0..headers_count {
+            let name_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+            offset += 2;
+            let name: String = buf[offset..offset + name_size]
+                .iter()
+                .map(|&b| b as char)
+                .collect();
+            offset += name_size;
 
-        let headers_data = buf;
-        let mut pos = 0;
-        for _ in 0..headers_size {
-            let name_size = u16::from_le_bytes([headers_data[pos], headers_data[pos + 1]]) as usize;
-            pos += 2;
-            let name: String = headers_data[pos..pos + name_size]
+            let value_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+            offset += 2;
+            let value: String = buf[offset..offset + value_size]
                 .iter()
                 .map(|&b| b as char)
                 .collect();
-            pos += name_size;
-            let value_size =
-                u16::from_le_bytes([headers_data[pos], headers_data[pos + 1]]) as usize;
-            pos += 2;
-            let value: String = headers_data[pos..pos + value_size]
-                .iter()
-                .map(|&b| b as char)
-                .collect();
-            pos += value_size;
+            offset += value_size;
 
             headers.insert(name, value);
         }
 
+        // Parse Request body size (u32) + Request body
+        let body_size = u32::from_le_bytes([
+            buf[offset],
+            buf[offset + 1],
+            buf[offset + 2],
+            buf[offset + 3],
+        ]) as usize;
+        offset += 4;
+        let body = buf[offset..offset + body_size].to_vec();
+
         Self {
             method,
             path,
+            query_string,
             headers,
+            body,
             params: HashMap::new(),
         }
     }
@@ -161,6 +185,8 @@ impl Request {
         }
         request_obj.set_ivar(REQUEST_HEADERS_IVAR_KEY, headers_hash);
         let params_hash = mrb_hash_new(vm, &[]).expect("Failed to create params hash");
+
+        // Merge route params
         for (key, value) in self.params {
             mrb_hash_set_index(
                 params_hash.clone(),
@@ -169,6 +195,21 @@ impl Request {
             )
             .expect("Failed to set param");
         }
+
+        // Parse and merge query string params
+        if !self.query_string.is_empty() {
+            for pair in self.query_string.split('&') {
+                if let Some((key, value)) = pair.split_once('=') {
+                    mrb_hash_set_index(
+                        params_hash.clone(),
+                        RObject::symbol(RSym::new(key.to_string())).to_refcount_assigned(),
+                        RObject::string(value.to_string()).to_refcount_assigned(),
+                    )
+                    .expect("Failed to set query param");
+                }
+            }
+        }
+
         request_obj.set_ivar(REQUEST_PARAMS_IVAR_KEY, params_hash);
 
         request_obj
@@ -217,7 +258,9 @@ impl Request {
         Ok(Self {
             method,
             path,
+            query_string: String::new(),
             headers,
+            body: Vec::new(),
             params,
         })
     }
