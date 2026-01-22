@@ -23,6 +23,8 @@ use mrubyedge::{
     },
 };
 
+use crate::helpers;
+
 #[derive(Debug)]
 pub struct Request {
     pub method: String,
@@ -184,7 +186,14 @@ impl Request {
             RObject::string(self.path).to_refcount_assigned(),
         );
         let headers_hash = mrb_hash_new(vm, &[]).expect("Failed to create headers hash");
+        let mut accepted_x_www_form_urlencoded = false;
         for (key, value) in self.headers {
+            if key.to_lowercase() == "content-type"
+                && value.to_lowercase() == "application/x-www-form-urlencoded"
+            {
+                accepted_x_www_form_urlencoded = true;
+            }
+
             mrb_hash_set_index(
                 headers_hash.clone(),
                 RObject::string(key).to_refcount_assigned(),
@@ -218,6 +227,18 @@ impl Request {
                 }
             }
         }
+
+        if accepted_x_www_form_urlencoded && !self.body.is_empty() {
+            for (key, value) in helpers::parse_x_www_form_urlencoded(&self.body) {
+                mrb_hash_set_index(
+                    params_hash.clone(),
+                    RObject::symbol(RSym::new(key)).to_refcount_assigned(),
+                    RObject::string(value).to_refcount_assigned(),
+                )
+                .expect("Failed to set form param");
+            }
+        }
+        // TODO: Parse json
 
         request_obj.set_ivar(REQUEST_PARAMS_IVAR_KEY, params_hash);
 
