@@ -26,6 +26,8 @@ export default {
 			return new Response(null, { status: 404 });
 		}
 
+		const query = new URL(request.url).searchParams;
+
 		let pos = 0;
 		const encoder = new TextEncoder();
 		const dataView = new DataView(exports.memory.buffer, reqOffset);
@@ -43,6 +45,16 @@ export default {
 		// Path
 		requestBuffer.set(pathBytes, pos);
 		pos += pathBytes.length;
+
+		// Query string size (u16 little-endian)
+		const queryString = query.toString();
+		const queryBytes = encoder.encode(queryString);
+		dataView.setUint16(pos, queryBytes.length, true);
+		pos += 2;
+
+		// Query string
+		requestBuffer.set(queryBytes, pos);
+		pos += queryBytes.length;
 
 		// Headers
 		const headers = [];
@@ -79,6 +91,16 @@ export default {
 			requestBuffer.set(valueBytes, pos);
 			pos += valueBytes.length;
 		}
+
+		// Request body size (u32 little-endian)
+		const bodyBytes = request.body ? new Uint8Array(await request.arrayBuffer()) : new Uint8Array(0);
+		dataView.setUint32(pos, bodyBytes.length, true);
+		pos += 4;
+
+		// Request body
+		requestBuffer.set(bodyBytes, pos);
+		pos += bodyBytes.length;
+
 		if (pos > 65536) {
 			throw new Error("Request data exceeds allocated buffer size");
 		}
@@ -88,6 +110,8 @@ export default {
 		// Unpack response
 		const decoder = new TextDecoder();
 		const resDataView = new DataView(exports.memory.buffer, resOffset);
+
+
 		let resPos = 0;
 
 		// Status code (u16 little-endian)
