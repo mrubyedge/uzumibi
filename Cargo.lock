@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-gem"
-version = "0.2.0"
+version = "0.3.0-rc1"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
@@ -1818,7 +1818,7 @@ version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.2.0",
+ "uzumibi-gem 0.3.0-rc1",
 ]
 
 [[package]]
