@@ -37,11 +37,13 @@ const REQUEST_METHOD_KEY: &str = "method";
 const REQUEST_PATH_KEY: &str = "path";
 const REQUEST_HEADERS_KEY: &str = "headers";
 const REQUEST_PARAMS_KEY: &str = "params";
+const REQUEST_BODY_KEY: &str = "body";
 
 const REQUEST_METHOD_IVAR_KEY: &str = "@method";
 const REQUEST_PATH_IVAR_KEY: &str = "@path";
 const REQUEST_HEADERS_IVAR_KEY: &str = "@headers";
 const REQUEST_PARAMS_IVAR_KEY: &str = "@params";
+const REQUEST_BODY_IVAR_KEY: &str = "@body";
 
 pub(crate) fn init_uzumibi_request(vm: &mut VM) {
     let uzumibi = vm
@@ -80,6 +82,13 @@ pub(crate) fn init_uzumibi_request(vm: &mut VM) {
         Some(request_class.clone()),
         "attr_accessor",
         &[as_sym(REQUEST_PARAMS_KEY)],
+    )
+    .expect("attr_accessor failed");
+    mrb_funcall(
+        vm,
+        Some(request_class.clone()),
+        "attr_accessor",
+        &[as_sym(REQUEST_BODY_KEY)],
     )
     .expect("attr_accessor failed");
 }
@@ -212,6 +221,11 @@ impl Request {
 
         request_obj.set_ivar(REQUEST_PARAMS_IVAR_KEY, params_hash);
 
+        request_obj.set_ivar(
+            REQUEST_BODY_IVAR_KEY,
+            RObject::string_from_vec(self.body).to_refcount_assigned(),
+        );
+
         request_obj
     }
 
@@ -255,12 +269,21 @@ impl Request {
             }
         };
 
+        let body_obj = obj.get_ivar(REQUEST_BODY_IVAR_KEY);
+        let body: Vec<u8> = match &body_obj.value {
+            RValue::String(s) => s.borrow().to_vec(),
+            RValue::Nil => Vec::new(),
+            _ => {
+                return Err(Error::RuntimeError("body must be a String".to_string()));
+            }
+        };
+
         Ok(Self {
             method,
             path,
             query_string: String::new(),
             headers,
-            body: Vec::new(),
+            body,
             params,
         })
     }
