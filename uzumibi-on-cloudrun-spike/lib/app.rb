@@ -14,6 +14,19 @@ class App < Uzumibi::Router
       "to keep the fire from going out.\n"
     res
   end
+
+  post "/data" do |req, res|
+    debug_console("[Uzumibi] Received request at /data")
+    debug_console("[Uzumibi] Body size: #{req.body.size} bytes")
+
+    res.status_code = 200
+    res.headers = {
+      "Content-Type" => "text/plain",
+      "X-Powered-By" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
+    }
+    res.body = "Received data: #{req.params.inspect}\n"
+    res
+  end
 end
 
 $APP = App.new

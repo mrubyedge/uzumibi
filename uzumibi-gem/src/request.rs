@@ -35,6 +35,9 @@ pub struct Request {
     pub params: HashMap<String, String>,
 }
 
+unsafe impl Send for Request {}
+unsafe impl Sync for Request {}
+
 const REQUEST_METHOD_KEY: &str = "method";
 const REQUEST_PATH_KEY: &str = "path";
 const REQUEST_HEADERS_KEY: &str = "headers";

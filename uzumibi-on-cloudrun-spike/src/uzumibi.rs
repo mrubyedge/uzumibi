@@ -52,8 +52,8 @@ fn init_vm() -> VM {
     vm
 }
 
-pub fn uzumibi_handle_request(
-    request: &Request<IncomingBody>,
+pub(crate) fn uzumibi_handle_request(
+    request: uzumibi_gem::request::Request,
 ) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
     let mut vm = init_vm();
     let app = vm
@@ -64,8 +64,7 @@ pub fn uzumibi_handle_request(
             mrubyedge::error::StaticError::General("$APP is not defined".into())
         })?
         .clone();
-
-    let request_robject = build_request_as_robject(&mut vm, request);
+    let request_robject = request.into_robject(&mut vm);
     mrb_funcall(
         &mut vm,
         Some(app.clone()),
@@ -76,7 +75,9 @@ pub fn uzumibi_handle_request(
     build_response_from_robject(&mut vm, response_robject)
 }
 
-pub fn build_request_as_robject(vm: &mut VM, request: &Request<IncomingBody>) -> Rc<RObject> {
+pub(crate) fn build_uzumibi_request(
+    request: &Request<IncomingBody>,
+) -> uzumibi_gem::request::Request {
     let method = request.method().to_string();
     let path = request.uri().path().to_string();
     let headers = request
@@ -87,17 +88,19 @@ pub fn build_request_as_robject(vm: &mut VM, request: &Request<IncomingBody>) ->
             (k.as_str().to_string(), value_str.to_string())
         })
         .collect::<HashMap<String, String>>();
+    let query_string = request.uri().query().unwrap_or_default().to_string();
 
-    let request = uzumibi_gem::request::Request {
+    uzumibi_gem::request::Request {
         method,
         path,
         headers,
-    };
-
-    request.into_robject(vm)
+        query_string,
+        body: Vec::new(),
+        params: HashMap::new(),
+    }
 }
 
-pub fn build_response_from_robject(
+pub(crate) fn build_response_from_robject(
     vm: &mut VM,
     response: Rc<RObject>,
 ) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
