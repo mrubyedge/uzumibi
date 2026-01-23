@@ -1,4 +1,7 @@
-use spin_sdk::http::{IntoResponse, Request, Response};
+extern crate anyhow;
+
+use anyhow::anyhow;
+use spin_sdk::http::{IntoResponse, Request};
 use spin_sdk::http_component;
 
 pub mod uzumibi;
@@ -7,10 +10,7 @@ pub mod uzumibi;
 #[http_component]
 fn handle_uzumibi_on_spin_spike(req: Request) -> anyhow::Result<impl IntoResponse> {
     println!("Handling request to {:?}", req.header("spin-full-url"));
-    let response = uzumibi::uzumibi_initialize_request(65536);
-    let packed_request = uzumibi::pack_request_data(&req);
-    response.borrow_mut().write(0, &packed_request);
-
-    let ret: Response = uzumibi::uzumibi_start_request();
-    Ok(ret)
+    uzumibi::uzumibi_initialize_request(req)
+        .map_err(|e| anyhow!("Failed to initialize request: {}", e))?;
+    uzumibi::uzumibi_start_request().map_err(|e| anyhow!("Failed to start request: {}", e))
 }

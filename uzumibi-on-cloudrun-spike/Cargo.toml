@@ -8,7 +8,7 @@ publish = false
 mrubyedge = { version = ">= 1.0.18", features = [
     "no-wasi",
 ], default-features = false }
-uzumibi-gem = "0.1.0"
+uzumibi-gem = "0.3.0-rc2"
 hyper = { version = "1.8", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"

@@ -19,7 +19,7 @@ class App < Uzumibi::Router
     p req.path
     res.status_code = 200
     res.headers = { "Content-Type" => "text/plain" }
-    res.body = "Hello, User #{req.params[:id]}!"
+    res.body = "Hello, User #{req.params[:id]}! param: #{req.params[:foo]}, #{req.params[:baz]}"
   end
 end
 
@@ -29,10 +29,13 @@ p router
 sm = router.initialize_request(1024)
 p sm
 path = "/users/42"
+query_string = "foo=bar&baz=qux"
 buf = "GET"
 buf += [0, 0, 0].pack("CCC")  # buffer
 buf += [path.size].pack("S")  # path size
 buf += path
+buf += [query_string.size].pack("S")  # query string size
+buf += query_string
 buf += [2].pack("S")  # headers size
 buf += [4].pack("S")  # header 1 key size
 buf += "Host"
@@ -42,6 +45,7 @@ buf += [6].pack("S")  # header 2 key size
 buf += "Accept"
 buf += [3].pack("S")  # header 2 value size
 buf += "*/*"
+buf += [0].pack("L")  # body size
 sm.replace(buf)
 
 response = router.start_request

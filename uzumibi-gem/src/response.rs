@@ -34,6 +34,9 @@ pub struct Response {
     pub body: Vec<u8>,
 }
 
+unsafe impl Send for Response {}
+unsafe impl Sync for Response {}
+
 const RESPONSE_STATUS_CODE_KEY: &str = "status_code";
 const RESPONSE_HEADERS_KEY: &str = "headers";
 const RESPONSE_BODY_KEY: &str = "body";
