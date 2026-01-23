@@ -1848,12 +1848,13 @@ dependencies = [
 name = "uzumibi-on-fastly-spike"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "fastly",
  "log",
  "log-fastly",
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.1.0",
+ "uzumibi-gem 0.3.0-rc2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
