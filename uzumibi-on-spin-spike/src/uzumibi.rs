@@ -3,18 +3,17 @@ extern crate mrubyedge;
 extern crate spin_sdk;
 extern crate uzumibi_gem;
 
-use std::{cell::RefCell, mem::MaybeUninit, rc::Rc};
+use std::{collections::HashMap, mem::MaybeUninit, rc::Rc};
 
 use mrubyedge::{
     rite::rite,
     yamrb::{
         helpers::{mrb_define_cmethod, mrb_funcall},
-        shared_memory::SharedMemory,
-        value::{RObject, RValue},
+        value::RObject,
         vm::VM,
     },
 };
-use spin_sdk::http::{HeaderValue, Request, Response};
+use spin_sdk::http::{Request, Response};
 
 static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.mrb"));
 
@@ -65,113 +64,75 @@ fn assume_init_vm() -> &'static mut VM {
     }
 }
 
-pub fn uzumibi_initialize_request(size: i32) -> Rc<RefCell<SharedMemory>> {
+pub fn uzumibi_initialize_request(request: Request) -> Result<(), mrubyedge::Error> {
     let vm = assume_init_vm();
-    let size = RObject::integer(size as i64).to_refcount_assigned();
-    let app = vm
-        .globals
-        .get("$APP")
-        .or_else(|| {
-            debug_console_log_internal("$APP is not defined");
-            None
-        })
-        .unwrap();
-    let ret = mrb_funcall(vm, app.clone().into(), "initialize_request", &[size])
-        .map_err(|e| {
-            debug_console_log_internal(&format!("Error in initialize_request: {}", e));
-            e
-        })
-        .unwrap();
-    robject_as_shared_memory(ret)
-}
-
-fn robject_as_shared_memory(obj: Rc<RObject>) -> Rc<RefCell<SharedMemory>> {
-    match obj.value {
-        RValue::SharedMemory(ref sm) => sm.clone(),
-        _ => panic!("Expected SharedMemory object"),
-    }
-}
-
-pub fn pack_request_data(request: &Request) -> Vec<u8> {
-    let mut data = Vec::new();
     let method = request.method().to_string();
-    let path = request.path().as_bytes();
-    let headers = request.headers().collect::<Vec<(&str, &HeaderValue)>>();
+    let path = request.path().to_string();
+    let headers = request
+        .headers()
+        .map(|(k, v)| {
+            let value_str = v.as_str().unwrap_or("");
+            (k.to_string(), value_str.to_string())
+        })
+        .collect::<HashMap<String, String>>();
+    let query_string = request.query().to_string();
+    let body = request.into_body();
 
-    // Method (6 bytes, padded with \0)
-    let mut method_buf = [0u8; 6];
-    method_buf[..method.len().min(6)].copy_from_slice(&method.as_bytes()[..method.len().min(6)]);
-    data.extend_from_slice(&method_buf);
+    let request = uzumibi_gem::request::Request {
+        method,
+        path,
+        headers,
+        query_string,
+        body,
+        params: HashMap::new(),
+    };
 
-    // Path size (u16 little-endian)
-    let path_size = path.len() as u16;
-    data.extend_from_slice(&path_size.to_le_bytes());
-
-    // Path
-    data.extend_from_slice(path);
-
-    // Headers count (u16 little-endian)
-    let headers_count = headers.len() as u16;
-    data.extend_from_slice(&headers_count.to_le_bytes());
-
-    // Headers (key size, key, value size, value)
-    for (key, value) in headers.iter() {
-        let key_bytes = key.as_bytes();
-        let value_bytes = value.as_bytes();
-
-        let key_size = key_bytes.len() as u16;
-        data.extend_from_slice(&key_size.to_le_bytes());
-        data.extend_from_slice(key_bytes);
-
-        let value_size = value_bytes.len() as u16;
-        data.extend_from_slice(&value_size.to_le_bytes());
-        data.extend_from_slice(value_bytes);
-    }
-
-    data
+    let app = vm
+        .globals
+        .get("$APP")
+        .cloned()
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Failed to get $APP".to_string()))?;
+    let request = request.into_robject(vm);
+    mrb_funcall(vm, Some(app.clone()), "set_request", &[request])?;
+    Ok(())
 }
 
-pub fn uzumibi_start_request() -> Response {
+pub fn uzumibi_start_request() -> Result<Response, mrubyedge::Error> {
     let vm = assume_init_vm();
     let app = vm
         .globals
         .get("$APP")
-        .or_else(|| {
-            debug_console_log_internal("$APP is not defined");
-            None
-        })
-        .unwrap();
-    let ret = mrb_funcall(vm, app.clone().into(), "start_request", &[])
-        .map_err(|e| {
-            debug_console_log_internal(&format!("Error in start_request: {}", e));
-            e
-        })
-        .unwrap();
+        .cloned()
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Failed to get $APP".to_string()))?;
+    let ret = mrb_funcall(vm, app.clone().into(), "start_request", &[]).map_err(|e| {
+        debug_console_log_internal(&format!("Error in start_request: {}", e));
+        e
+    })?;
     robject_as_response(ret)
 }
 
-fn robject_as_response(obj: Rc<RObject>) -> Response {
+fn robject_as_response(obj: Rc<RObject>) -> Result<Response, mrubyedge::Error> {
     let vm = assume_init_vm();
     let status_code: u32 = {
-        let status_obj = mrb_funcall(vm, obj.clone().into(), "status_code", &[]).unwrap();
-        status_obj.as_ref().try_into().expect("Invalid status code")
+        let status_obj = mrb_funcall(vm, obj.clone().into(), "status_code", &[])?;
+        status_obj.as_ref().try_into()?
     };
     let headers: Vec<_> = {
-        let headers_obj = mrb_funcall(vm, obj.clone().into(), "headers", &[]).unwrap();
-        headers_obj.as_ref().try_into().expect("Invalid headers")
+        let headers_obj = mrb_funcall(vm, obj.clone().into(), "headers", &[])?;
+        headers_obj.as_ref().try_into()?
     };
     let body = {
-        let body_obj = mrb_funcall(vm, obj.clone().into(), "body", &[]).unwrap();
-        let body_str: String = body_obj.as_ref().try_into().expect("Invalid body");
+        let body_obj = mrb_funcall(vm, obj.clone().into(), "body", &[])?;
+        let body_str: String = body_obj.as_ref().try_into()?;
         body_str.into_bytes()
     };
 
     let mut builder = Response::builder();
     let mut response = builder.status(status_code as u16);
     for (key, value) in headers {
-        let key: String = key.as_ref().try_into().expect("Invalid header key");
-        let value: String = value.as_ref().try_into().expect("Invalid header value");
+        let key: String = key.as_ref().try_into()?;
+        let value: String = value.as_ref().try_into()?;
         response = response.header(&key, &value);
     }
-    response.body(body).build()
+    Ok(response.body(body).build())
 }

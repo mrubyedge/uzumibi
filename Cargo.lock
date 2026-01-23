@@ -1866,7 +1866,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "spin-sdk",
- "uzumibi-gem 0.1.0",
+ "uzumibi-gem 0.3.0-rc2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
