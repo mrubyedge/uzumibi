@@ -37,7 +37,6 @@ fn uzumibi_kernel_debug_console_log(
 
 fn init_vm() -> VM {
     log_fastly::init_simple("uzumibi", log::LevelFilter::Info);
-    log::info!("Initializing MRuby VM");
 
     let mut rite = rite::load(MRB).expect("failed to load");
     let mut vm = VM::open(&mut rite);

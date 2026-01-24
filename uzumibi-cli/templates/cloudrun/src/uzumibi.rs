@@ -34,8 +34,6 @@ fn uzumibi_kernel_debug_console_log(
 }
 
 fn init_vm() -> VM {
-    println!("Initializing MRuby VM");
-
     let mut rite = rite::load(MRB).expect("failed to load");
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
