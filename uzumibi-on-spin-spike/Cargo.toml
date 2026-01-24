@@ -15,7 +15,7 @@ spin-sdk = "5.0.0"
 mrubyedge = { version = ">= 1.0.18", features = [
     "no-wasi",
 ], default-features = false }
-uzumibi-gem = "0.3.0-rc2"
+uzumibi-gem = "0.3,0"
 log = "0.4.29"
 
 [build-dependencies]

@@ -369,6 +369,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "errno"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+dependencies = [
+ "libc",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1422,6 +1432,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
+dependencies = [
+ "errno",
+ "libc",
+]
+
+[[package]]
 name = "simple_endian"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1672,6 +1692,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
@@ -1805,10 +1826,9 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-gem"
-version = "0.3.0-rc2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "797fa4647ee73cfb35bb49ed021f025a35335f23f6eac9c26de7bfeb6aa91ddb"
+version = "0.3.0"
 dependencies = [
+ "mruby-compiler2-sys",
  "mrubyedge",
  "uzumibi-art-router 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1816,8 +1836,9 @@ dependencies = [
 [[package]]
 name = "uzumibi-gem"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7274a2e09c2e0feca99af9a39093855897b9ef4395a6893ecdadbb7f46c0693"
 dependencies = [
- "mruby-compiler2-sys",
  "mrubyedge",
  "uzumibi-art-router 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1841,7 +1862,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "tokio",
- "uzumibi-gem 0.3.0-rc2",
+ "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1854,7 +1875,7 @@ dependencies = [
  "log-fastly",
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.3.0-rc2",
+ "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1866,7 +1887,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "spin-sdk",
- "uzumibi-gem 0.3.0-rc2",
+ "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
