@@ -19,8 +19,16 @@ async fn uzumibi_request(
     //       mruby/edge and uzumibi_gem structures are not `Send`.
     let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
     uzumibi_request.body = body_bytes;
-    let response = uzumibi::uzumibi_handle_request(uzumibi_request)?;
-    Ok(response)
+    match uzumibi::uzumibi_handle_request(uzumibi_request) {
+        Ok(response) => Ok(response),
+        Err(e) => {
+            let message = format!("Internal Server Error: {}", e);
+            let response = Response::builder()
+                .status(500)
+                .body(Full::new(Bytes::from(message.into_bytes())))?;
+            Ok(response)
+        }
+    }
 }
 
 #[tokio::main]
