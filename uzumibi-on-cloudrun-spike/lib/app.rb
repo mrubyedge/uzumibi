@@ -29,4 +29,5 @@ class App < Uzumibi::Router
   end
 end
 
+aaa
 $APP = App.new
