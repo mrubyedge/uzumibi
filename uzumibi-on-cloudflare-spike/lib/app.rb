@@ -1,5 +1,6 @@
 class App < Uzumibi::Router
   get "/" do |req, res|
+    hogehohe
     debug_console("[Uzumibi] Received request at /")
     debug_console("[Uzumibi] Requested UA: #{req.headers["user-agent"]}")
 
@@ -24,5 +25,6 @@ class App < Uzumibi::Router
     res
   end
 end
+aaa
 
 $APP = App.new
