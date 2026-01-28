@@ -19,7 +19,18 @@ const exports = instance.exports;
 
 export default {
 	async fetch(request, env, ctx) {
-		const reqOffset = exports.uzumibi_initialize_request(65536);
+		const reqResult = exports.uzumibi_initialize_request(65536);
+		const reqOffset = Number(reqResult & 0xFFFFFFFFn);
+		if (reqOffset === 0) {
+			const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
+			const decoder = new TextDecoder();
+			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			for (let i = 0; buffer[i] !== 0; i++) {
+				errStr += String.fromCharCode(buffer[i]);
+			}
+			throw new Error(`Failed to initialize request: ${errStr}`);
+		}
 		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
 		const path = new URL(request.url).pathname;
 		if (path === "/favicon.ico") {
@@ -105,7 +116,18 @@ export default {
 			throw new Error("Request data exceeds allocated buffer size");
 		}
 
-		const resOffset = exports.uzumibi_start_request();
+		const resResult = exports.uzumibi_start_request();
+		const resOffset = Number(resResult & 0xFFFFFFFFn);
+		if (resOffset === 0) {
+			const errOffset = Number((resResult >> 32n) & 0xFFFFFFFFn);
+			const decoder = new TextDecoder();
+			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			for (let i = 0; buffer[i] !== 0; i++) {
+				errStr += String.fromCharCode(buffer[i]);
+			}
+			throw new Error(`Failed to start request: ${errStr}`);
+		}
 
 		// Unpack response
 		const decoder = new TextDecoder();

@@ -35,10 +35,11 @@ fn uzumibi_kernel_debug_console_log(
     Ok(RObject::nil().to_refcount_assigned())
 }
 
-fn init_vm() -> VM {
+fn init_vm() -> Result<VM, mrubyedge::Error> {
     log_fastly::init_simple("uzumibi", log::LevelFilter::Info);
 
-    let mut rite = rite::load(MRB).expect("failed to load");
+    let mut rite = rite::load(MRB)
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
     let object = vm.object_class.clone();
@@ -49,23 +50,24 @@ fn init_vm() -> VM {
         Box::new(uzumibi_kernel_debug_console_log),
     );
 
-    vm.run().expect("failed to run");
+    vm.run()
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to init VM: {:?}", e)))?;
 
-    vm
+    Ok(vm)
 }
 
-fn assume_init_vm() -> &'static mut VM {
+fn assume_init_vm() -> Result<&'static mut VM, mrubyedge::Error> {
     unsafe {
         if !MRUBY_VM_LOADED {
-            MRUBY_VM = MaybeUninit::new(init_vm());
+            MRUBY_VM = MaybeUninit::new(init_vm()?);
             MRUBY_VM_LOADED = true;
         }
-        MRUBY_VM.assume_init_mut()
+        Ok(MRUBY_VM.assume_init_mut())
     }
 }
 
 pub fn uzumibi_initialize_request(request: fastly::Request) -> Result<(), mrubyedge::Error> {
-    let vm = assume_init_vm();
+    let vm = assume_init_vm()?;
     let method = request.get_method_str().to_string();
     let path = request.get_url().path().to_string();
     let headers = request
@@ -98,7 +100,7 @@ pub fn uzumibi_initialize_request(request: fastly::Request) -> Result<(), mrubye
 }
 
 pub fn uzumibi_start_request() -> Result<fastly::Response, mrubyedge::Error> {
-    let vm = assume_init_vm();
+    let vm = assume_init_vm()?;
     let app = vm
         .globals
         .get("$APP")
@@ -107,11 +109,13 @@ pub fn uzumibi_start_request() -> Result<fastly::Response, mrubyedge::Error> {
         debug_console_log_internal(&format!("Error in start_request: {}", e));
         e
     })?;
-    robject_as_response(ret)
+    robject_as_response(vm, ret)
 }
 
-fn robject_as_response(obj: Rc<RObject>) -> Result<fastly::Response, mrubyedge::Error> {
-    let vm = assume_init_vm();
+fn robject_as_response(
+    vm: &mut VM,
+    obj: Rc<RObject>,
+) -> Result<fastly::Response, mrubyedge::Error> {
     let status_code: u32 = {
         let status_obj = mrb_funcall(vm, obj.clone().into(), "status_code", &[])?;
         status_obj.as_ref().try_into()?

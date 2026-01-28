@@ -33,8 +33,9 @@ fn uzumibi_kernel_debug_console_log(
     Ok(RObject::nil().to_refcount_assigned())
 }
 
-fn init_vm() -> VM {
-    let mut rite = rite::load(MRB).expect("failed to load");
+fn init_vm() -> Result<VM, mrubyedge::Error> {
+    let mut rite = rite::load(MRB)
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
     let object = vm.object_class.clone();
@@ -45,15 +46,16 @@ fn init_vm() -> VM {
         Box::new(uzumibi_kernel_debug_console_log),
     );
 
-    vm.run().expect("failed to run");
+    vm.run()
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to init VM: {:?}", e)))?;
 
-    vm
+    Ok(vm)
 }
 
 pub(crate) fn uzumibi_handle_request(
     request: uzumibi_gem::request::Request,
 ) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
-    let mut vm = init_vm();
+    let mut vm = init_vm()?;
     let app = vm
         .globals
         .get("$APP")
