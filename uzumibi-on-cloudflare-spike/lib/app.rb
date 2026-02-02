@@ -1,6 +1,5 @@
 class App < Uzumibi::Router
   get "/" do |req, res|
-    hogehohe
     debug_console("[Uzumibi] Received request at /")
     debug_console("[Uzumibi] Requested UA: #{req.headers["user-agent"]}")
 
@@ -16,6 +15,15 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/rand/:seed" do |req, res|
+    Random.srand(req.params[:seed].to_i) 
+
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Answer = #{rand(100)}\n"
+    res
+  end
+
   get "/healthz" do |req, res|
     res.status_code = 200
     res.headers = {
@@ -25,6 +33,5 @@ class App < Uzumibi::Router
     res
   end
 end
-aaa
 
 $APP = App.new
