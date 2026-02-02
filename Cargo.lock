@@ -375,7 +375,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1040,9 +1040,9 @@ dependencies = [
 
 [[package]]
 name = "mrubyedge"
-version = "1.0.18"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557cc8dd1929612cab34a71fafc6aa68114a56147465484bf09eeb228cafa005"
+checksum = "bb58245ddb9f38ad7d3426a244b823567fb6a00e5a82b49eaa42e40ab66b652c"
 dependencies = [
  "plain",
  "simple_endian",
@@ -1795,7 +1795,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "rand 0.8.5",
- "uzumibi-gem 0.1.0",
+ "uzumibi-gem 0.3.0",
 ]
 
 [[package]]
@@ -1817,28 +1817,19 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-gem"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6ace8cfed6a831a0cef55e03d01d505be622e5a522eda90f7131c72d0e87255"
-dependencies = [
- "mrubyedge",
-]
-
-[[package]]
-name = "uzumibi-gem"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7274a2e09c2e0feca99af9a39093855897b9ef4395a6893ecdadbb7f46c0693"
 dependencies = [
- "mruby-compiler2-sys",
  "mrubyedge",
  "uzumibi-art-router 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "uzumibi-gem"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7274a2e09c2e0feca99af9a39093855897b9ef4395a6893ecdadbb7f46c0693"
+version = "0.4.0"
 dependencies = [
+ "mruby-compiler2-sys",
  "mrubyedge",
  "uzumibi-art-router 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1849,7 +1840,7 @@ version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.3.0",
+ "uzumibi-gem 0.4.0",
 ]
 
 [[package]]
@@ -1862,7 +1853,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "tokio",
- "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.3.0",
 ]
 
 [[package]]
@@ -1875,7 +1866,7 @@ dependencies = [
  "log-fastly",
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.3.0",
 ]
 
 [[package]]
@@ -1887,7 +1878,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "spin-sdk",
- "uzumibi-gem 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.3.0",
 ]
 
 [[package]]

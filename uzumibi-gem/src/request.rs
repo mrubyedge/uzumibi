@@ -295,7 +295,7 @@ impl Request {
 
         let body_obj = obj.get_ivar(REQUEST_BODY_IVAR_KEY);
         let body: Vec<u8> = match &body_obj.value {
-            RValue::String(s) => s.borrow().to_vec(),
+            RValue::String(s, _) => s.borrow().to_vec(),
             RValue::Nil => Vec::new(),
             _ => {
                 return Err(Error::RuntimeError("body must be a String".to_string()));
