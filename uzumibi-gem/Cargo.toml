@@ -10,7 +10,7 @@ license = "BSD-3-Clause"
 mrubyedge = { version = ">= 1.1.0", features = [
     "no-wasi",
 ], default-features = false }
-uzumibi-art-router = "0.1.0"
+uzumibi-art-router = ">= 0.1.0"
 
 [dev-dependencies]
 mrubyedge = { version = ">= 1.1.0", features = [
