@@ -43,12 +43,14 @@ const REQUEST_PATH_KEY: &str = "path";
 const REQUEST_HEADERS_KEY: &str = "headers";
 const REQUEST_PARAMS_KEY: &str = "params";
 const REQUEST_BODY_KEY: &str = "body";
+const REQUEST_RAW_BODY_KEY: &str = "raw_body";
 
 const REQUEST_METHOD_IVAR_KEY: &str = "@method";
 const REQUEST_PATH_IVAR_KEY: &str = "@path";
 const REQUEST_HEADERS_IVAR_KEY: &str = "@headers";
 const REQUEST_PARAMS_IVAR_KEY: &str = "@params";
 const REQUEST_BODY_IVAR_KEY: &str = "@body";
+const REQUEST_RAW_BODY_IVAR_KEY: &str = "@raw_body";
 
 pub(crate) fn init_uzumibi_request(vm: &mut VM) {
     let uzumibi = vm
@@ -94,6 +96,13 @@ pub(crate) fn init_uzumibi_request(vm: &mut VM) {
         Some(request_class.clone()),
         "attr_accessor",
         &[as_sym(REQUEST_BODY_KEY)],
+    )
+    .expect("attr_accessor failed");
+    mrb_funcall(
+        vm,
+        Some(request_class.clone()),
+        "attr_accessor",
+        &[as_sym(REQUEST_RAW_BODY_KEY)],
     )
     .expect("attr_accessor failed");
 }
@@ -189,12 +198,14 @@ impl Request {
             RObject::string(self.path).to_refcount_assigned(),
         );
         let headers_hash = mrb_hash_new(vm, &[]).expect("Failed to create headers hash");
-        let mut accepted_x_www_form_urlencoded = false;
+        let mut content_type: &'static str = "";
         for (key, value) in self.headers {
-            if key.to_lowercase() == "content-type"
-                && value.to_lowercase() == "application/x-www-form-urlencoded"
-            {
-                accepted_x_www_form_urlencoded = true;
+            if key.to_lowercase() == "content-type" {
+                if value.to_lowercase() == "application/x-www-form-urlencoded" {
+                    content_type = "application/x-www-form-urlencoded";
+                } else if value.to_lowercase() == "application/json" {
+                    content_type = "application/json";
+                }
             }
 
             mrb_hash_set_index(
@@ -231,24 +242,57 @@ impl Request {
             }
         }
 
-        if accepted_x_www_form_urlencoded && !self.body.is_empty() {
-            for (key, value) in helpers::parse_x_www_form_urlencoded(&self.body) {
-                mrb_hash_set_index(
-                    params_hash.clone(),
-                    RObject::symbol(RSym::new(key)).to_refcount_assigned(),
-                    RObject::string(value).to_refcount_assigned(),
-                )
-                .expect("Failed to set form param");
+        let mut json_body = false;
+        if !self.body.is_empty() {
+            match content_type {
+                "application/x-www-form-urlencoded" => {
+                    for (key, value) in helpers::parse_x_www_form_urlencoded(&self.body) {
+                        mrb_hash_set_index(
+                            params_hash.clone(),
+                            RObject::symbol(RSym::new(key)).to_refcount_assigned(),
+                            RObject::string(value).to_refcount_assigned(),
+                        )
+                        .expect("Failed to set form param");
+                    }
+                }
+                "application/json" => {
+                    let body_rstr =
+                        RObject::string_from_vec(self.body.clone()).to_refcount_assigned();
+                    if let Ok(json_value) = mruby_serde_json::mrb_json_class_load(vm, &[body_rstr])
+                    {
+                        // If json_value is a Hash, set key-value pairs to params
+                        if let RValue::Hash(h) = &json_value.value {
+                            let json_hash = h.borrow();
+                            for (_, (key_obj, value_obj)) in json_hash.iter() {
+                                if let Ok(key) = TryInto::<String>::try_into(key_obj.as_ref()) {
+                                    mrb_hash_set_index(
+                                        params_hash.clone(),
+                                        RObject::symbol(RSym::new(key)).to_refcount_assigned(),
+                                        value_obj.clone(),
+                                    )
+                                    .expect("Failed to set json param");
+                                }
+                            }
+                        }
+
+                        request_obj.set_ivar(REQUEST_BODY_IVAR_KEY, json_value);
+                        json_body = true;
+                    } else {
+                        // Ignore JSON parse error
+                    }
+                }
+                _ => {}
             }
         }
         // TODO: Parse json
 
         request_obj.set_ivar(REQUEST_PARAMS_IVAR_KEY, params_hash);
+        let raw_body = RObject::string_from_vec(self.body).to_refcount_assigned();
 
-        request_obj.set_ivar(
-            REQUEST_BODY_IVAR_KEY,
-            RObject::string_from_vec(self.body).to_refcount_assigned(),
-        );
+        if !json_body {
+            request_obj.set_ivar(REQUEST_BODY_IVAR_KEY, raw_body.clone());
+        }
+        request_obj.set_ivar(REQUEST_RAW_BODY_IVAR_KEY, raw_body);
 
         request_obj
     }
