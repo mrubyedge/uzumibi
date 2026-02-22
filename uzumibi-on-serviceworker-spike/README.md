@@ -77,6 +77,34 @@ npx http-server public -p 8000
 
 After starting the server, access `http://localhost:8000/` in your browser.
 
+## Development
+
+### Clearing Cache During Development
+
+When developing and testing changes, you may need to unregister the Service Worker:
+
+**How to unregister Service Worker**
+1. Open Chrome DevTools
+2. Go to **Application** tab
+3. In the left sidebar, click **Service Workers** (under Application section)
+4. Click **Unregister** next to your Service Worker
+5. Reload the page
+
+### Super Reload Behavior
+
+**Note:** Super reload (Ctrl+Shift+R / Cmd+Shift+R) bypasses Service Workers by design. This is a browser feature that allows developers to bypass caching for testing.
+
+**Automatic Recovery:** This application includes automatic super reload detection. If you accidentally perform a super reload:
+1. The page detects that the Service Worker was bypassed
+2. An alert is displayed to notify you
+3. The page automatically reloads normally to re-activate the Service Worker
+
+This detection works by checking:
+- `navigator.serviceWorker.controller` is `null` (no active Service Worker)
+- `performance.getEntriesByType('navigation')[0].type` is `'reload'`
+
+If you want to intentionally clear caches during development, use the methods described above instead of super reload.
+
 ## Verification
 
 1. Open browser developer tools
