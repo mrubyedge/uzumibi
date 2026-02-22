@@ -77,6 +77,28 @@ npx http-server public -p 8000
 
 After starting the server, access `http://localhost:8000/` in your browser.
 
+## Development
+
+### Clearing Cache During Development
+
+When developing and testing changes, you may need to clear the Service Worker cache:
+
+**Method 1: Clear Site Data (Recommended)**
+1. Open Chrome DevTools
+2. Go to **Application** tab
+3. In the left sidebar, click **Storage** (under Application section)
+4. Click **Clear site data** button
+5. Reload the page
+
+**Method 2: Unregister Service Worker**
+1. Open Chrome DevTools
+2. Go to **Application** tab
+3. In the left sidebar, click **Service Workers** (under Application section)
+4. Click **Unregister** next to your Service Worker
+5. Reload the page
+
+**Note:** Super reload (Ctrl+Shift+R / Cmd+Shift+R) bypasses Service Workers by design, but won't clear cached data. Use the methods above for a clean restart during development.
+
 ## Verification
 
 1. Open browser developer tools
