@@ -1901,6 +1901,11 @@ dependencies = [
 [[package]]
 name = "uzumibi-on-serviceworker-spike"
 version = "0.1.0"
+dependencies = [
+ "mruby-compiler2-sys",
+ "mrubyedge",
+ "uzumibi-gem 0.4.1",
+]
 
 [[package]]
 name = "uzumibi-on-spin-spike"

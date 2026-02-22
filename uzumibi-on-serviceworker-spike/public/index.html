@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Sample</title>
+</head>
+
+<body>
+    <h1>Service Worker Sample</h1>
+    <div id="status">Registering Service Worker...</div>
+
+    <div style="margin: 20px 0;">
+        <button id="btn-root" style="margin: 5px; padding: 10px 20px;">Request /</button>
+        <button id="btn-hello" style="margin: 5px; padding: 10px 20px;">Request /hello</button>
+        <button id="btn-profile" style="margin: 5px; padding: 10px 20px;">Request /profile</button>
+        <button id="btn-404" style="margin: 5px; padding: 10px 20px;">Request /404</button>
+    </div>
+
+    <div id="content"></div>
+
+    <script>
+        // Function to fetch and display response
+        function fetchAndDisplay(path) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = '<p>Loading...</p>';
+
+            fetch(path)
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Response from Service Worker:', data);
+                    contentDiv.innerHTML = '<h2>Response from ' + path + ':</h2><pre>' + data + '</pre>';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    contentDiv.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                });
+        }
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered:', registration);
+                    document.getElementById('status').textContent = 'Service Worker registered';
+
+                    // Wait for Service Worker to become active
+                    return navigator.serviceWorker.ready;
+                })
+                .then(() => {
+                    console.log('Service Worker is ready');
+                    document.getElementById('status').textContent = 'Service Worker ready! Click a button to make a request.';
+
+                    // Setup button event listeners
+                    document.getElementById('btn-root').addEventListener('click', () => fetchAndDisplay('/'));
+                    document.getElementById('btn-hello').addEventListener('click', () => fetchAndDisplay('/hello'));
+                    document.getElementById('btn-profile').addEventListener('click', () => fetchAndDisplay('/profile'));
+                    document.getElementById('btn-404').addEventListener('click', () => fetchAndDisplay('/404'));
+
+                    // Enable buttons
+                    document.getElementById('btn-root').disabled = false;
+                    document.getElementById('btn-hello').disabled = false;
+                    document.getElementById('btn-profile').disabled = false;
+                    document.getElementById('btn-404').disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('status').textContent = 'Error: ' + error.message;
+                });
+
+            // Disable buttons initially
+            document.getElementById('btn-root').disabled = true;
+            document.getElementById('btn-hello').disabled = true;
+            document.getElementById('btn-profile').disabled = true;
+            document.getElementById('btn-404').disabled = true;
+        } else {
+            document.getElementById('status').textContent = 'Service Worker is not supported';
+        }
+    </script>
+</body>
+
+</html>
