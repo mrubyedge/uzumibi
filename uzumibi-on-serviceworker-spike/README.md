@@ -25,6 +25,22 @@ A sample project for using WASM with Service Workers.
 
 ## Building
 
+### Using Make (Recommended)
+
+```bash
+make wasm
+```
+
+This will build the WASM module and copy it to the public directory.
+
+Other available commands:
+- `make build` - Build WASM module only
+- `make copy` - Copy WASM to public directory only
+- `make clean` - Clean build artifacts
+- `make serve` - Start development server
+
+### Manual Build
+
 First, build the WASM module:
 
 ```bash
@@ -40,6 +56,12 @@ cp ../target/wasm32-unknown-unknown/release/uzumibi_on_serviceworker_spike.wasm 
 ## Running
 
 Service Workers only work over HTTPS or localhost. Start a local server:
+
+### Using Make
+
+```bash
+make serve
+```
 
 ### Using Python 3
 

@@ -30,7 +30,13 @@
                 .then(response => response.text())
                 .then(data => {
                     console.log('Response from Service Worker:', data);
-                    contentDiv.innerHTML = '<h2>Response from ' + path + ':</h2><pre>' + data + '</pre>';
+                    let prettyData;
+                    try {
+                        prettyData = JSON.stringify(JSON.parse(data), null, 2);
+                    } catch (e) {
+                        prettyData = data; // If not JSON, display as is
+                    }
+                    contentDiv.innerHTML = '<h2>Response from ' + path + ':</h2><pre>' + prettyData + '</pre>';
                 })
                 .catch(error => {
                     console.error('Error:', error);

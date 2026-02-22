@@ -5,9 +5,8 @@ class App < Uzumibi::Router
       "Content-Type" => "application/json",
       "X-Powered-By" => "serviceworker-spike"
     }
-    res.body = JSON.stringify({
+    res.body = JSON.dump({
       message: "Hello from Service Worker!",
-      timestamp: Time.now.to_s,
       path: "/",
       description: "This is the root endpoint",
       engine: "#{RUBY_ENGINE} #{RUBY_VERSION}"
@@ -21,9 +20,8 @@ class App < Uzumibi::Router
       "Content-Type" => "application/json",
       "X-Powered-By" => "serviceworker-spike"
     }
-    res.body = JSON.stringify({
+    res.body = JSON.dump({
       message: "Hello, World!",
-      timestamp: Time.now.to_s,
       path: "/hello",
       description: "This is the hello endpoint",
       greeting: "Welcome to the hello page!",
@@ -38,9 +36,8 @@ class App < Uzumibi::Router
       "Content-Type" => "application/json",
       "X-Powered-By" => "serviceworker-spike"
     }
-    res.body = JSON.stringify({
+    res.body = JSON.dump({
       message: "User Profile",
-      timestamp: Time.now.to_s,
       path: "/profile",
       description: "This is the profile endpoint",
       user: {

@@ -35,6 +35,7 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
+    mrubyedge_serde_json::init_json(&mut vm);
 
     vm.run()
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to init VM: {:?}", e)))?;
