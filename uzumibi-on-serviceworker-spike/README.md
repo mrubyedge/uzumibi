@@ -81,23 +81,29 @@ After starting the server, access `http://localhost:8000/` in your browser.
 
 ### Clearing Cache During Development
 
-When developing and testing changes, you may need to clear the Service Worker cache:
+When developing and testing changes, you may need to unregister the Service Worker:
 
-**Method 1: Clear Site Data (Recommended)**
-1. Open Chrome DevTools
-2. Go to **Application** tab
-3. In the left sidebar, click **Storage** (under Application section)
-4. Click **Clear site data** button
-5. Reload the page
-
-**Method 2: Unregister Service Worker**
+**How to unregister Service Worker**
 1. Open Chrome DevTools
 2. Go to **Application** tab
 3. In the left sidebar, click **Service Workers** (under Application section)
 4. Click **Unregister** next to your Service Worker
 5. Reload the page
 
-**Note:** Super reload (Ctrl+Shift+R / Cmd+Shift+R) bypasses Service Workers by design, but won't clear cached data. Use the methods above for a clean restart during development.
+### Super Reload Behavior
+
+**Note:** Super reload (Ctrl+Shift+R / Cmd+Shift+R) bypasses Service Workers by design. This is a browser feature that allows developers to bypass caching for testing.
+
+**Automatic Recovery:** This application includes automatic super reload detection. If you accidentally perform a super reload:
+1. The page detects that the Service Worker was bypassed
+2. An alert is displayed to notify you
+3. The page automatically reloads normally to re-activate the Service Worker
+
+This detection works by checking:
+- `navigator.serviceWorker.controller` is `null` (no active Service Worker)
+- `performance.getEntriesByType('navigation')[0].type` is `'reload'`
+
+If you want to intentionally clear caches during development, use the methods described above instead of super reload.
 
 ## Verification
 
