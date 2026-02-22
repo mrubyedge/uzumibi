@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Sample</title>
+</head>
+
+<body>
+    <h1>Service Worker Sample</h1>
+    <div id="status">Registering Service Worker...</div>
+    <div id="content"></div>
+
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered:', registration);
+                    document.getElementById('status').textContent = 'Service Worker registered';
+
+                    // Wait for Service Worker to become active
+                    return navigator.serviceWorker.ready;
+                })
+                .then(() => {
+                    console.log('Service Worker is ready');
+                    // Execute fetch through Service Worker
+                    return fetch('/');
+                })
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Response from Service Worker:', data);
+                    document.getElementById('content').innerHTML = '<h2>Response:</h2><pre>' + data + '</pre>';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('status').textContent = 'Error: ' + error.message;
+                });
+        } else {
+            document.getElementById('status').textContent = 'Service Worker is not supported';
+        }
+    </script>
+</body>
+
+</html>

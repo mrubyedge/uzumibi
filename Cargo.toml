@@ -4,7 +4,7 @@ members = ["uzumibi-art-router",
     "uzumibi-gem",
     "uzumibi-on-cloudflare-spike/wasm-app",
     "uzumibi-on-cloudrun-spike",
-    "uzumibi-on-fastly-spike",
+    "uzumibi-on-fastly-spike", "uzumibi-on-serviceworker-spike",
     "uzumibi-on-spin-spike",
     #    "uzumibi-on-wasmcloud-spike",
 ]
