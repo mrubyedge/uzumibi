@@ -21,6 +21,20 @@
     <div id="content"></div>
 
     <script>
+        // Detect super reload and handle it
+        document.addEventListener('DOMContentLoaded', () => {
+            const navigationEntry = performance.getEntriesByType('navigation')[0];
+            const isReload = navigationEntry && navigationEntry.type === 'reload';
+            const noController = !navigator.serviceWorker.controller;
+
+            if (isReload && noController) {
+                console.warn('[Super Reload Detected] Service Worker was bypassed. Reloading normally...');
+                alert('Super reload detected. Service Worker was bypassed.\nReloading normally to activate Service Worker...');
+                location.reload();
+                return;
+            }
+        });
+
         // Function to fetch and display response
         function fetchAndDisplay(path) {
             const contentDiv = document.getElementById('content');
