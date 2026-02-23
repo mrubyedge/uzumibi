@@ -5,6 +5,10 @@ Uzumibi is a lightweight web application framework for embedding MRuby into edge
 
 Uzumibi uses a specialized mruby implementation [mruby/edge](https://github.com/mrubyedge/mrubyedge), which is optimized for edge computing scenarios - WebAssembly environments with limited resources.
 
+## 👉 Documentation
+
+- [On GitHub Pages](https://mrubyedge.github.io/uzumibi/) - The official Uzumibi documentation, covering installation, usage, supported platforms, and more.
+
 ### tl;dr
 
 Ruby code example for Uzumibi:
