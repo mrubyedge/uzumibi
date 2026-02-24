@@ -1,0 +1,40 @@
+desc: Test uzumibi CLI error cases
+vars:
+  binary: ../target/release/uzumibi
+  tmpdir: ../tmp
+steps:
+  build:
+    desc: Build release binary
+    exec:
+      command: cargo build --release --quiet
+    test: current.exit_code == 0
+
+  setup_tmpdir:
+    desc: Setup temp directory
+    exec:
+      command: mkdir -p {{ vars.tmpdir }}
+    test: current.exit_code == 0
+
+  template_not_found:
+    desc: Error when template not found
+    exec:
+      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t nonexistent-template my-project 2>&1
+    test: |
+      current.exit_code != 0 &&
+      current.stdout contains 'not found'
+
+  directory_exists:
+    desc: Error when directory already exists
+    exec:
+      command: |
+        mkdir -p {{ vars.tmpdir }}/existing-project
+        cd {{ vars.tmpdir }} && {{ vars.binary }} new -t spin existing-project 2>&1
+    test: |
+      current.exit_code != 0 &&
+      current.stdout contains 'already exists'
+
+  cleanup:
+    desc: Clean up test directories
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/existing-project {{ vars.tmpdir }}/my-project
+    test: current.exit_code == 0

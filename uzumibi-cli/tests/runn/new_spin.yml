@@ -1,0 +1,51 @@
+# desc: Test uzumibi new command with spin template
+# vars:
+#   binary: ./target/release/uzumibi
+#   project_name: test-spin-project
+#   template: spin
+# steps:
+#   build:
+#     desc: Build release binary
+#     exec:
+#       command: cargo build --release --quiet
+#     test: current.exit_code == 0
+
+#   cleanup_before:
+#     desc: Clean up existing test directory
+#     exec:
+#       command: rm -rf {{ vars.project_name }}
+#     test: current.exit_code == 0
+
+#   create_project:
+#     desc: Create new spin project
+#     exec:
+#       command: "{{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}"
+#     test: |
+#       current.exit_code == 0 &&
+#       current.stdout contains 'Successfully created project'
+
+#   check_cargo_toml:
+#     desc: Check Cargo.toml exists and has correct project name
+#     exec:
+#       command: cat {{ vars.project_name }}/Cargo.toml
+#     test: |
+#       current.exit_code == 0 &&
+#       current.stdout contains 'name = "test-spin-project"'
+
+#   check_app_rb:
+#     desc: Check lib/app.rb exists
+#     exec:
+#       command: test -f {{ vars.project_name }}/lib/app.rb
+#     test: current.exit_code == 0
+
+#   check_spin_toml:
+#     desc: Check spin.toml exists
+#     exec:
+#       command: test -f {{ vars.project_name }}/spin.toml
+#     test: current.exit_code == 0
+
+#   cleanup_after:
+#     desc: Clean up test directory
+#     exec:
+#       command: rm -rf {{ vars.project_name }}
+#     test: current.exit_code == 0

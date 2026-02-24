@@ -1,0 +1,58 @@
+desc: Test uzumibi new command with cloudflare template
+vars:
+  binary: ../target/release/uzumibi
+  tmpdir: ../tmp
+  project_name: test-cloudflare-project
+  template: cloudflare
+steps:
+  build:
+    desc: Build release binary
+    exec:
+      command: cargo build --release --quiet
+    test: current.exit_code == 0
+
+  setup_tmpdir:
+    desc: Setup temp directory
+    exec:
+      command: mkdir -p {{ vars.tmpdir }}
+    test: current.exit_code == 0
+
+  cleanup_before:
+    desc: Clean up existing test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    test: current.exit_code == 0
+
+  create_project:
+    desc: Create new cloudflare project
+    exec:
+      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}
+    test: |
+      current.exit_code == 0 &&
+      current.stdout contains 'Successfully created project'
+
+  check_cargo_toml:
+    desc: Check Cargo.toml exists and has correct project name
+    exec:
+      command: cat {{ vars.tmpdir }}/{{ vars.project_name }}/wasm-app/Cargo.toml
+    test: |
+      current.exit_code == 0 &&
+      current.stdout contains 'name = "test-cloudflare-project"'
+
+  check_app_rb:
+    desc: Check lib/app.rb exists
+    exec:
+      command: test -f {{ vars.tmpdir }}/{{ vars.project_name }}/wasm-app/lib/app.rb
+    test: current.exit_code == 0
+
+  check_wrangler:
+    desc: Check wrangler.jsonc exists
+    exec:
+      command: test -f {{ vars.tmpdir }}/{{ vars.project_name }}/wrangler.jsonc
+    test: current.exit_code == 0
+
+  cleanup_after:
+    desc: Clean up test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    test: current.exit_code == 0
