@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Worker Sample</title>
+</head>
+
+<body>
+    <h1>Web Worker Sample</h1>
+    <div id="status">Initializing Web Worker...</div>
+
+    <div style="margin: 20px 0;">
+        <button id="btn-root" style="margin: 5px; padding: 10px 20px;">Request /</button>
+        <button id="btn-hello" style="margin: 5px; padding: 10px 20px;">Request /hello</button>
+        <button id="btn-profile" style="margin: 5px; padding: 10px 20px;">Request /profile</button>
+        <button id="btn-404" style="margin: 5px; padding: 10px 20px;">Request /404</button>
+    </div>
+
+    <div id="content"></div>
+
+    <script>
+        // Store pending requests
+        const pendingRequests = new Map();
+        let requestIdCounter = 0;
+        let worker = null;
+        let workerReady = false;
+
+        // Original fetch function
+        const originalFetch = window.fetch;
+
+        // Initialize Web Worker
+        function initWorker() {
+            return new Promise((resolve, reject) => {
+                worker = new Worker('/worker.js');
+
+                worker.addEventListener('message', (event) => {
+                    const data = event.data;
+
+                    // Handle ready message
+                    if (data.type === 'ready') {
+                        console.log('[Main] Worker is ready');
+                        workerReady = true;
+                        resolve();
+                        return;
+                    }
+
+                    // Handle error during initialization
+                    if (data.type === 'error') {
+                        console.error('[Main] Worker initialization error:', data.error);
+                        reject(new Error(data.error));
+                        return;
+                    }
+
+                    // Handle response messages
+                    const { id, success, response, error } = data;
+                    const pending = pendingRequests.get(id);
+                    if (pending) {
+                        pendingRequests.delete(id);
+                        if (success) {
+                            pending.resolve(response);
+                        } else {
+                            pending.reject(new Error(error));
+                        }
+                    }
+                });
+
+                worker.addEventListener('error', (event) => {
+                    console.error('[Main] Worker error:', event);
+                    reject(event);
+                });
+            });
+        }
+
+        // Override fetch to route through Web Worker
+        function createWorkerFetch() {
+            return function workerFetch(input, init = {}) {
+                const url = new URL(input, window.location.origin);
+
+                // Pass through requests for static files
+                if (url.pathname === '/worker.js' ||
+                    url.pathname === '/app.wasm' ||
+                    url.pathname === '/index.html' ||
+                    url.pathname.endsWith('.js') ||
+                    url.pathname.endsWith('.css')) {
+                    return originalFetch(input, init);
+                }
+
+                // If worker is not ready, fall back to original fetch
+                if (!workerReady) {
+                    console.warn('[Main] Worker not ready, using original fetch');
+                    return originalFetch(input, init);
+                }
+
+                // Prepare request data for worker
+                const request = {
+                    method: init.method || 'GET',
+                    path: url.pathname,
+                    query: url.search.slice(1), // Remove leading '?'
+                    headers: []
+                };
+
+                // Convert headers
+                if (init.headers) {
+                    if (init.headers instanceof Headers) {
+                        for (const [key, value] of init.headers.entries()) {
+                            request.headers.push({ key, value });
+                        }
+                    } else if (Array.isArray(init.headers)) {
+                        for (const [key, value] of init.headers) {
+                            request.headers.push({ key, value });
+                        }
+                    } else {
+                        for (const [key, value] of Object.entries(init.headers)) {
+                            request.headers.push({ key, value });
+                        }
+                    }
+                }
+
+                // Send request to worker and return Promise
+                return new Promise((resolve, reject) => {
+                    const id = requestIdCounter++;
+                    pendingRequests.set(id, {
+                        resolve: (response) => {
+                            // Convert worker response to Response object
+                            const res = new Response(response.body, {
+                                status: response.statusCode,
+                                headers: response.headers
+                            });
+                            resolve(res);
+                        },
+                        reject
+                    });
+
+                    worker.postMessage({ id, request });
+                });
+            };
+        }
+
+        // Function to fetch and display response
+        function fetchAndDisplay(path) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = '<p>Loading...</p>';
+
+            fetch(path)
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Response from Web Worker:', data);
+                    let prettyData;
+                    try {
+                        prettyData = JSON.stringify(JSON.parse(data), null, 2);
+                    } catch (e) {
+                        prettyData = data; // If not JSON, display as is
+                    }
+                    contentDiv.innerHTML = '<h2>Response from ' + path + ':</h2><pre>' + prettyData + '</pre>';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    contentDiv.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                });
+        }
+
+        // Initialize
+        async function init() {
+            // Disable buttons initially
+            document.getElementById('btn-root').disabled = true;
+            document.getElementById('btn-hello').disabled = true;
+            document.getElementById('btn-profile').disabled = true;
+            document.getElementById('btn-404').disabled = true;
+
+            try {
+                await initWorker();
+
+                // Override fetch
+                window.fetch = createWorkerFetch();
+
+                document.getElementById('status').textContent = 'Web Worker ready! Click a button to make a request.';
+
+                // Setup button event listeners
+                document.getElementById('btn-root').addEventListener('click', () => fetchAndDisplay('/'));
+                document.getElementById('btn-hello').addEventListener('click', () => fetchAndDisplay('/hello'));
+                document.getElementById('btn-profile').addEventListener('click', () => fetchAndDisplay('/profile'));
+                document.getElementById('btn-404').addEventListener('click', () => fetchAndDisplay('/404'));
+
+                // Enable buttons
+                document.getElementById('btn-root').disabled = false;
+                document.getElementById('btn-hello').disabled = false;
+                document.getElementById('btn-profile').disabled = false;
+                document.getElementById('btn-404').disabled = false;
+
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Start initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
