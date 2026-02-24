@@ -256,29 +256,32 @@ impl Request {
                     }
                 }
                 "application/json" => {
-                    let body_rstr =
-                        RObject::string_from_vec(self.body.clone()).to_refcount_assigned();
-                    if let Ok(json_value) = mruby_serde_json::mrb_json_class_load(vm, &[body_rstr])
+                    #[cfg(feature = "use-json")]
                     {
-                        // If json_value is a Hash, set key-value pairs to params
-                        if let RValue::Hash(h) = &json_value.value {
-                            let json_hash = h.borrow();
-                            for (_, (key_obj, value_obj)) in json_hash.iter() {
-                                if let Ok(key) = TryInto::<String>::try_into(key_obj.as_ref()) {
-                                    mrb_hash_set_index(
-                                        params_hash.clone(),
-                                        RObject::symbol(RSym::new(key)).to_refcount_assigned(),
-                                        value_obj.clone(),
-                                    )
-                                    .expect("Failed to set json param");
+                        let body_rstr =
+                            RObject::string_from_vec(self.body.clone()).to_refcount_assigned();
+                        if let Ok(json_value) = mrubyedge_serde_json::mrb_json_class_load(vm, &[body_rstr])
+                        {
+                            // If json_value is a Hash, set key-value pairs to params
+                            if let RValue::Hash(h) = &json_value.value {
+                                let json_hash = h.borrow();
+                                for (_, (key_obj, value_obj)) in json_hash.iter() {
+                                    if let Ok(key) = TryInto::<String>::try_into(key_obj.as_ref()) {
+                                        mrb_hash_set_index(
+                                            params_hash.clone(),
+                                            RObject::symbol(RSym::new(key)).to_refcount_assigned(),
+                                            value_obj.clone(),
+                                        )
+                                        .expect("Failed to set json param");
+                                    }
                                 }
                             }
-                        }
 
-                        request_obj.set_ivar(REQUEST_BODY_IVAR_KEY, json_value);
-                        json_body = true;
-                    } else {
-                        // Ignore JSON parse error
+                            request_obj.set_ivar(REQUEST_BODY_IVAR_KEY, json_value);
+                            json_body = true;
+                        } else {
+                            // Ignore JSON parse error
+                        }
                     }
                 }
                 _ => {}
