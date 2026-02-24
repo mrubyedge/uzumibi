@@ -50,6 +50,10 @@ class App < Uzumibi::Router
     })
     res
   end
+
+  get "/error" do |req, res|
+    raise "This is a simulated error for testing error handling in the web worker environment."
+  end
 end
 
 $APP = App.new

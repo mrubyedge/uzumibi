@@ -1,4 +1,5 @@
 #![allow(static_mut_refs)]
+#![allow(rust_2024_compatibility)]
 extern crate mrubyedge;
 extern crate uzumibi_gem;
 
@@ -55,6 +56,7 @@ fn assume_init_vm() -> Result<&'static mut VM, mrubyedge::Error> {
 
 fn do_uzumibi_initialize_request(size: i32) -> Result<*mut u8, mrubyedge::Error> {
     let vm = assume_init_vm()?;
+    vm.exception.take(); // Clear any existing exception
     let size = RObject::integer(size as i64).to_refcount_assigned();
     let app = vm
         .globals
@@ -86,6 +88,9 @@ fn do_uzumibi_start_request() -> Result<*mut u8, mrubyedge::Error> {
 
 #[unsafe(export_name = "uzumibi_initialize_request")]
 unsafe extern "C" fn uzumibi_initialize_request(size: i32) -> u64 {
+    // Clear error buffer at the start of each request
+    ERROR_BUF[0] = 0;
+
     match do_uzumibi_initialize_request(size) {
         Ok(ptr) => (ptr as u32) as u64,
         Err(e) => {
