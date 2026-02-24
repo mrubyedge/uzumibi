@@ -12,10 +12,6 @@
     <div id="status">Registering Service Worker...</div>
 
     <div style="margin: 20px 0;">
-        <button id="btn-root" style="margin: 5px; padding: 10px 20px;">Request /</button>
-    </div>
-
-    <div style="margin: 20px 0;">
         <input type="text" id="custom-path" placeholder="/custom/path" style="padding: 10px; width: 200px; font-size: 14px;">
         <button id="btn-custom" style="margin: 5px; padding: 10px 20px;">Request Custom Path</button>
     </div>
@@ -91,7 +87,6 @@
                     document.getElementById('status').textContent = 'Service Worker ready! Click a button to make a request.';
 
                     // Setup button event listeners
-                    document.getElementById('btn-root').addEventListener('click', () => fetchAndDisplay('/'));
                     document.getElementById('btn-custom').addEventListener('click', () => {
                         const path = document.getElementById('custom-path').value.trim();
                         if (path) {
@@ -104,8 +99,7 @@
                         }
                     });
 
-                    // Enable buttons
-                    document.getElementById('btn-root').disabled = false;
+                    // Enable button
                     document.getElementById('btn-custom').disabled = false;
                 })
                 .catch(error => {
@@ -113,8 +107,7 @@
                     document.getElementById('status').textContent = 'Error: ' + error.message;
                 });
 
-            // Disable buttons initially
-            document.getElementById('btn-root').disabled = true;
+            // Disable button initially
             document.getElementById('btn-custom').disabled = true;
         } else {
             document.getElementById('status').textContent = 'Service Worker is not supported';
