@@ -13,6 +13,8 @@ use std::collections::HashMap;
 ///
 /// # Example
 /// ```
+/// use uzumibi_gem::helpers::parse_x_www_form_urlencoded;
+/// 
 /// let data = b"name=John+Doe&age=30&city=New%20York";
 /// let params = parse_x_www_form_urlencoded(data);
 /// assert_eq!(params.get("name"), Some(&"John Doe".to_string()));
