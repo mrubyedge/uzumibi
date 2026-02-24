@@ -11,7 +11,7 @@ mrubyedge = { version = ">= 1.1.8", features = [
     "no-wasi",
     "mruby-random",
 ], default-features = false }
-uzumibi-gem = ">= 0.3.0"
+uzumibi-gem = ">= 0.5.0"
 mrubyedge-serde-json = ">= 0.1.0"
 
 [build-dependencies]
