@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$$PROJECT_NAME$$</title>
+</head>
+
+<body>
+    <h1>$$PROJECT_NAME$$</h1>
+    <div id="status">Initializing Web Worker...</div>
+
+    <div style="margin: 20px 0;">
+        <input type="text" id="custom-path" placeholder="/custom/path" style="padding: 10px; width: 200px; font-size: 14px;">
+        <button id="btn-custom" style="margin: 5px; padding: 10px 20px;">Request Custom Path</button>
+    </div>
+
+    <div id="content"></div>
+
+    <script>
+        // Store pending requests
+        const pendingRequests = new Map();
+        let requestIdCounter = 0;
+        let worker = null;
+        let workerReady = false;
+
+        // Original fetch function
+        const originalFetch = window.fetch;
+
+        // Initialize Web Worker
+        function initWorker() {
+            return new Promise((resolve, reject) => {
+                worker = new Worker('/worker.js');
+
+                worker.addEventListener('message', (event) => {
+                    const data = event.data;
+
+                    // Handle ready message
+                    if (data.type === 'ready') {
+                        console.log('[Main] Worker is ready');
+                        workerReady = true;
+                        resolve();
+                        return;
+                    }
+
+                    // Handle error during initialization
+                    if (data.type === 'error') {
+                        console.error('[Main] Worker initialization error:', data.error);
+                        reject(new Error(data.error));
+                        return;
+                    }
+
+                    // Handle response messages
+                    const { id, success, response, error } = data;
+                    const pending = pendingRequests.get(id);
+                    if (pending) {
+                        pendingRequests.delete(id);
+                        if (success) {
+                            pending.resolve(response);
+                        } else {
+                            pending.reject(new Error(error));
+                        }
+                    }
+                });
+
+                worker.addEventListener('error', (event) => {
+                    console.error('[Main] Worker error:', event);
+                    reject(event);
+                });
+            });
+        }
+
+        // Override fetch to route through Web Worker
+        function createWorkerFetch() {
+            return function workerFetch(input, init = {}) {
+                const url = new URL(input, window.location.origin);
+
+                // Pass through requests for static files
+                if (url.pathname === '/worker.js' ||
+                    url.pathname === '/app.wasm' ||
+                    url.pathname === '/index.html' ||
+                    url.pathname.endsWith('.js') ||
+                    url.pathname.endsWith('.css')) {
+                    return originalFetch(input, init);
+                }
+
+                // If worker is not ready, fall back to original fetch
+                if (!workerReady) {
+                    console.warn('[Main] Worker not ready, using original fetch');
+                    return originalFetch(input, init);
+                }
+
+                // Prepare request data for worker
+                const request = {
+                    method: init.method || 'GET',
+                    path: url.pathname,
+                    query: url.search.slice(1), // Remove leading '?'
+                    headers: []
+                };
+
+                // Convert headers
+                if (init.headers) {
+                    if (init.headers instanceof Headers) {
+                        for (const [key, value] of init.headers.entries()) {
+                            request.headers.push({ key, value });
+                        }
+                    } else if (Array.isArray(init.headers)) {
+                        for (const [key, value] of init.headers) {
+                            request.headers.push({ key, value });
+                        }
+                    } else {
+                        for (const [key, value] of Object.entries(init.headers)) {
+                            request.headers.push({ key, value });
+                        }
+                    }
+                }
+
+                // Send request to worker and return Promise
+                return new Promise((resolve, reject) => {
+                    const id = requestIdCounter++;
+                    pendingRequests.set(id, {
+                        resolve: (response) => {
+                            // Convert worker response to Response object
+                            const res = new Response(response.body, {
+                                status: response.statusCode,
+                                headers: response.headers
+                            });
+                            resolve(res);
+                        },
+                        reject
+                    });
+
+                    worker.postMessage({ id, request });
+                });
+            };
+        }
+
+        // Function to fetch and display response
+        function fetchAndDisplay(path) {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = '<p>Loading...</p>';
+
+            fetch(path)
+                .then(response => {
+                    const status = response.status;
+                    const statusText = response.statusText || '';
+                    const headers = {};
+                    for (const [key, value] of response.headers.entries()) {
+                        headers[key] = value;
+                    }
+                    return response.text().then(data => ({ status, statusText, headers, data }));
+                })
+                .then(({ status, statusText, headers, data }) => {
+                    console.log('Response from Web Worker:', status, headers, data);
+                    let prettyData;
+                    try {
+                        prettyData = JSON.stringify(JSON.parse(data), null, 2);
+                    } catch (e) {
+                        prettyData = data;
+                    }
+                    const statusColor = status >= 200 && status < 300 ? 'green' : status >= 400 ? 'red' : 'orange';
+                    const headersHtml = Object.entries(headers)
+                        .map(([key, value]) => '<tr><td style="padding: 2px 10px 2px 0; font-weight: bold;">' + key + '</td><td>' + value + '</td></tr>')
+                        .join('');
+                    contentDiv.innerHTML =
+                        '<h2>Response from ' + path + ':</h2>' +
+                        '<p><strong>Status:</strong> <span style="color: ' + statusColor + ';">' + status + ' ' + statusText + '</span></p>' +
+                        '<details style="margin: 10px 0;"><summary style="cursor: pointer;"><strong>Headers</strong></summary><table style="margin: 10px 0; font-size: 14px;">' + headersHtml + '</table></details>' +
+                        '<p><strong>Body:</strong></p><pre>' + prettyData + '</pre>';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    contentDiv.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                });
+        }
+
+        // Initialize
+        async function init() {
+            // Disable button initially
+            document.getElementById('btn-custom').disabled = true;
+
+            try {
+                await initWorker();
+
+                // Override fetch
+                window.fetch = createWorkerFetch();
+
+                document.getElementById('status').textContent = 'Web Worker ready! Click a button to make a request.';
+
+                // Setup button event listeners
+                document.getElementById('btn-custom').addEventListener('click', () => {
+                    const path = document.getElementById('custom-path').value.trim();
+                    if (path) {
+                        fetchAndDisplay(path.startsWith('/') ? path : '/' + path);
+                    }
+                });
+                document.getElementById('custom-path').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        document.getElementById('btn-custom').click();
+                    }
+                });
+
+                // Enable button
+                document.getElementById('btn-custom').disabled = false;
+
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Start initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>

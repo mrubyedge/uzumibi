@@ -1944,6 +1944,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-on-webworker-spike"
+version = "0.1.0"
+dependencies = [
+ "mruby-compiler2-sys 0.2.2",
+ "mrubyedge",
+ "mrubyedge-serde-json",
+ "uzumibi-gem 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
