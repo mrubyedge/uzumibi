@@ -3,7 +3,6 @@ use mrubyedge::yamrb::vm::VM;
 extern crate mruby_compiler2_sys;
 extern crate mrubyedge;
 extern crate uzumibi_art_router;
-extern crate uzumibi_gem;
 
 fn compile_vm(code: &'static str) -> Result<VM, mrubyedge::Error> {
     let mrb_bin = unsafe {
@@ -16,7 +15,7 @@ fn compile_vm(code: &'static str) -> Result<VM, mrubyedge::Error> {
     let mut rite = mrubyedge::rite::load(&mrb_bin)
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load rite: {}", e)))?;
     let mut vm = VM::open(&mut rite);
-    uzumibi_gem::init::init_uzumibi(&mut vm);
+    let _ = vm.define_module("Uzumibi", None);
     uzumibi_art_router::init_uzumibi_art_router(&mut vm);
     Ok(vm)
 }
