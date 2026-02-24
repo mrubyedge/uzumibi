@@ -125,9 +125,7 @@ where
         // Wildcard routes are stored directly
         if is_wildcard {
             if let Route::Handler(handler) = route {
-                self.art
-                    .borrow_mut()
-                    .insert(key, Route::Wildcard(handler));
+                self.art.borrow_mut().insert(key, Route::Wildcard(handler));
             }
             return;
         }
@@ -292,13 +290,13 @@ fn find_route_recursive<T: Clone>(
             .collect();
 
         let wildcard_key = ByteString::new(&wildcard_search_path);
-        if let Some(route) = art_borrow.get(&wildcard_key) {
-            if let Route::Wildcard(v) = route {
-                // Wildcard captures the rest of the path from this segment onwards
-                let rest_path = segments[right_idx..].join("/");
-                params.insert("*".to_string(), rest_path);
-                return (Some(Route::Wildcard(v.clone())), params.clone());
-            }
+        if let Some(route) = art_borrow.get(&wildcard_key)
+            && let Route::Wildcard(v) = route
+        {
+            // Wildcard captures the rest of the path from this segment onwards
+            let rest_path = segments[right_idx..].join("/");
+            params.insert("*".to_string(), rest_path);
+            return (Some(Route::Wildcard(v.clone())), params.clone());
         }
     }
 

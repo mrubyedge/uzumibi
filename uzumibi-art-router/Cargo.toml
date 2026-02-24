@@ -17,4 +17,5 @@ mrubyedge = { version = ">= 1.1", features = [
 ], default-features = false }
 rand = "0.8.4"
 mruby-compiler2-sys = ">= 0.3.0"
-uzumibi-gem = ">= 0.3.0"
+# uzumibi-gem = ">= 0.4.0"
+uzumibi-gem = { path = "../uzumibi-gem" }

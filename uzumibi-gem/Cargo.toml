@@ -11,7 +11,7 @@ mrubyedge = { version = ">= 1.1.0", features = [
     "no-wasi",
 ], default-features = false }
 mruby-serde-json = { version = ">= 0.1.0", optional = true }
-uzumibi-art-router = ">= 0.3.0"
+uzumibi-art-router = ">= 0.2.0"
 
 [dev-dependencies]
 mrubyedge = { version = ">= 1.1.0", features = [
