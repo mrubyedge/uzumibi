@@ -1854,16 +1854,6 @@ dependencies = [
 [[package]]
 name = "uzumibi-gem"
 version = "0.4.2"
-dependencies = [
- "mruby-compiler2-sys",
- "mruby-serde-json",
- "mrubyedge",
- "uzumibi-art-router 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "uzumibi-gem"
-version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b43278b54f960d8f8e7c319ce7afb114c27fc5cf297cdd272145251b67144a8"
 dependencies = [
@@ -1873,12 +1863,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-gem"
+version = "0.5.0"
+dependencies = [
+ "mruby-compiler2-sys",
+ "mrubyedge",
+ "mrubyedge-serde-json",
+ "uzumibi-art-router 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.4.2",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
@@ -1891,7 +1891,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "tokio",
- "uzumibi-gem 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.4.2",
 ]
 
 [[package]]
@@ -1904,7 +1904,7 @@ dependencies = [
  "log-fastly",
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.4.2",
 ]
 
 [[package]]
@@ -1914,7 +1914,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "mrubyedge-serde-json",
- "uzumibi-gem 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.4.2",
 ]
 
 [[package]]
@@ -1927,7 +1927,7 @@ dependencies = [
  "mrubyedge",
  "spin-sdk",
  "uzumibi-art-router 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-gem 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.4.2",
 ]
 
 [[package]]
@@ -1937,7 +1937,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "mrubyedge-serde-json",
- "uzumibi-gem 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.4.2",
 ]
 
 [[package]]
