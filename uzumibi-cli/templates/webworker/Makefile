@@ -18,4 +18,4 @@ clean:
 
 # Start development server
 serve:
-	ruby -run -e httpd public -p 8080
+	python3 -m http.server 8080 -d public
