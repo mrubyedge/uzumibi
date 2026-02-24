@@ -2,6 +2,11 @@ use std::{cell::RefCell, collections::HashMap};
 
 use crate::vendor_art_tree::{Art, ByteString};
 
+/// Marker byte for parameter segments (e.g., :id)
+const PARAM_MARKER: u8 = 0xff;
+/// Marker byte for wildcard segments (*)
+const WILDCARD_MARKER: u8 = 0xfe;
+
 /// Route object
 pub enum Route<T>
 where
@@ -12,6 +17,7 @@ where
         param_name: String,
         store: Box<RouteStore<T>>,
     },
+    Wildcard(T),
 }
 
 impl<T> Route<T>
@@ -51,18 +57,27 @@ where
 
     /// Convert path to routing key
     /// Example: "users/:id/posts" -> "users/\xff", "posts"
-    fn path_to_key(path: &str) -> (ByteString, &str, String) {
+    /// Wildcard: "api/*" -> "api/\xfe" (captures rest of path as :*)
+    fn path_to_key(path: &str) -> (ByteString, &str, String, bool) {
         let segments: Vec<&str> = path.split('/').collect();
         let mut path = Vec::new();
         let mut path_terminated = false;
         let mut param_name = "";
         let mut rest = Vec::new();
+        let mut is_wildcard = false;
         for segment in segments.iter() {
             if path_terminated {
                 rest.push(segment.to_string());
+            } else if *segment == "*" {
+                // Wildcard: captures rest of path
+                let marker = vec![WILDCARD_MARKER];
+                path_terminated = true;
+                is_wildcard = true;
+                param_name = "*";
+                path.push(marker);
             } else if let Some(stripped) = segment.strip_prefix(':') {
-                // Parameters like :id are converted to 255u8 (\xff)
-                let marker = vec![0xffu8];
+                // Parameters like :id are converted to PARAM_MARKER
+                let marker = vec![PARAM_MARKER];
                 path_terminated = true;
                 param_name = stripped;
                 path.push(marker);
@@ -91,7 +106,7 @@ where
             path_joined
         };
 
-        let rest = if path_terminated {
+        let rest = if path_terminated && !is_wildcard {
             let mut s = "/".to_string();
             s.push_str(&rest.join("/"));
             s
@@ -100,12 +115,23 @@ where
         };
 
         // Rejoin with / and convert to byte string
-        (ByteString::new(&path_joined), param_name, rest)
+        (ByteString::new(&path_joined), param_name, rest, is_wildcard)
     }
 
     /// Register a route
     pub fn insert(&self, path: &str, route: Route<T>) {
-        let (key, param_name, subkey) = Self::path_to_key(path);
+        let (key, param_name, subkey, is_wildcard) = Self::path_to_key(path);
+
+        // Wildcard routes are stored directly
+        if is_wildcard {
+            if let Route::Handler(handler) = route {
+                self.art
+                    .borrow_mut()
+                    .insert(key, Route::Wildcard(handler));
+            }
+            return;
+        }
+
         if !subkey.is_empty() {
             if let Some(subroute) = self.art.borrow().get(&key) {
                 match subroute {
@@ -115,7 +141,7 @@ where
                     } => {
                         store.insert(&subkey, route);
                     }
-                    Route::Handler(_) => {
+                    Route::Handler(_) | Route::Wildcard(_) => {
                         // Overwrite if there's an existing handler
                         let store: RouteStore<T> = RouteStore::new();
                         store.insert(&subkey, route);
@@ -138,7 +164,7 @@ where
     pub fn get(&self, path: &str) -> Option<T> {
         let (route, _) = find_route_recursive(self, path, &mut HashMap::new());
         route.and_then(|route| match route {
-            Route::Handler(handler) => Some(handler),
+            Route::Handler(handler) | Route::Wildcard(handler) => Some(handler),
             _ => None,
         })
     }
@@ -148,7 +174,7 @@ where
         let (route, params) = find_route_recursive(self, path, &mut HashMap::new());
         (
             route.and_then(|route| match route {
-                Route::Handler(handler) => Some(handler),
+                Route::Handler(handler) | Route::Wildcard(handler) => Some(handler),
                 _ => None,
             }),
             params,
@@ -166,6 +192,7 @@ fn find_route_recursive<T: Clone>(
     if let Some(route) = store.art.borrow().get(&key) {
         return match route {
             Route::Handler(v) => (Some(Route::Handler(v.clone())), params.clone()),
+            Route::Wildcard(v) => (Some(Route::Wildcard(v.clone())), params.clone()),
             Route::SubRoutes { .. } => {
                 panic!("Unexpected SubRoutes found at exact match")
             }
@@ -187,7 +214,7 @@ fn find_route_recursive<T: Clone>(
             }
 
             if i == right_idx {
-                modified_path_bytes.push(0xff);
+                modified_path_bytes.push(PARAM_MARKER);
             } else {
                 modified_path_bytes.extend_from_slice(segment.as_bytes());
             }
@@ -203,7 +230,7 @@ fn find_route_recursive<T: Clone>(
                     v.push(b'/');
                 }
                 if i == right_idx {
-                    v.push(0xff);
+                    v.push(PARAM_MARKER);
                 } else {
                     v.extend_from_slice(segment.as_bytes());
                 }
@@ -217,21 +244,60 @@ fn find_route_recursive<T: Clone>(
         if let Some(route) = art_borrow.get(&search_key) {
             match route {
                 Route::Handler(v) => return (Some(Route::Handler(v.clone())), params.clone()),
+                Route::Wildcard(v) => {
+                    // Wildcard captures the rest of the path from this segment onwards
+                    let rest_path = segments[right_idx..].join("/");
+                    params.insert("*".to_string(), rest_path);
+                    return (Some(Route::Wildcard(v.clone())), params.clone());
+                }
                 Route::SubRoutes {
                     param_name,
                     store: sub_store,
                 } => {
-                    params.insert(param_name.clone(), matched_segment.to_string());
+                    let mut sub_params = params.clone();
+                    sub_params.insert(param_name.clone(), matched_segment.to_string());
                     // Recursively search the remaining left part
-                    if right_idx + 1 < segments.len() {
+                    let (result, result_params) = if right_idx + 1 < segments.len() {
                         let left_segments = &segments[right_idx + 1..];
                         let left_path = format!("/{}", left_segments.join("/"));
-                        return find_route_recursive(sub_store, &left_path, params);
+                        find_route_recursive(sub_store, &left_path, &mut sub_params)
                     } else {
                         // If nothing remains, search with "/"
-                        return find_route_recursive(sub_store, "/", params);
+                        find_route_recursive(sub_store, "/", &mut sub_params)
+                    };
+                    // Only return if we found a match, otherwise continue to try wildcard
+                    if result.is_some() {
+                        return (result, result_params);
                     }
                 }
+            }
+        }
+
+        // Also try wildcard marker for this position
+        let wildcard_search_path: Vec<u8> = segments[..=right_idx]
+            .iter()
+            .enumerate()
+            .flat_map(|(i, segment)| {
+                let mut v = Vec::new();
+                if i > 0 || !segment.is_empty() {
+                    v.push(b'/');
+                }
+                if i == right_idx {
+                    v.push(WILDCARD_MARKER);
+                } else {
+                    v.extend_from_slice(segment.as_bytes());
+                }
+                v
+            })
+            .collect();
+
+        let wildcard_key = ByteString::new(&wildcard_search_path);
+        if let Some(route) = art_borrow.get(&wildcard_key) {
+            if let Route::Wildcard(v) = route {
+                // Wildcard captures the rest of the path from this segment onwards
+                let rest_path = segments[right_idx..].join("/");
+                params.insert("*".to_string(), rest_path);
+                return (Some(Route::Wildcard(v.clone())), params.clone());
             }
         }
     }
@@ -405,5 +471,51 @@ mod tests {
 
         let h3 = store.get("/users/123/hoge");
         assert!(h3.is_none());
+    }
+
+    #[test]
+    fn test_wildcard() {
+        let store = RouteStore::new();
+        store.insert("/api/*", Route::new("api_handler"));
+        store.insert("/static/*", Route::new("static_handler"));
+        store.insert("/about", Route::new("about_handler"));
+
+        let h1 = store.get("/api/users").unwrap();
+        assert_eq!(h1, "api_handler");
+
+        let h2 = store.get("/api/users/123/posts").unwrap();
+        assert_eq!(h2, "api_handler");
+
+        let h3 = store.get("/static/css/style.css").unwrap();
+        assert_eq!(h3, "static_handler");
+
+        let h4 = store.get("/about").unwrap();
+        assert_eq!(h4, "about_handler");
+
+        let h5 = store.get("/other");
+        assert!(h5.is_none());
+    }
+
+    #[test]
+    fn test_wildcard_with_params() {
+        let store = RouteStore::new();
+        store.insert("/api/*", Route::new("api_handler"));
+
+        let (h1, params1) = store.get_with_params("/api/users/123/posts");
+        assert_eq!(h1.unwrap(), "api_handler");
+        assert_eq!(params1.get("*").unwrap(), "users/123/posts");
+
+        let (h2, params2) = store.get_with_params("/api/single");
+        assert_eq!(h2.unwrap(), "api_handler");
+        assert_eq!(params2.get("*").unwrap(), "single");
+    }
+
+    #[test]
+    fn test_path_to_key_wildcard() {
+        let key = RouteStore::<()>::path_to_key("/api/*");
+        assert_eq!(key.0.to_bytes(), b"/api/\xfe");
+        assert_eq!(key.1, "*");
+        assert_eq!(key.2, "");
+        assert!(key.3); // is_wildcard
     }
 }
