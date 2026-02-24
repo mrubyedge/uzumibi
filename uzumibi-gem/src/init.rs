@@ -73,6 +73,12 @@ pub fn init_uzumibi(vm: &mut VM) {
         "head",
         Box::new(uzumibi_router_head),
     );
+    mrb_define_class_cmethod(
+        vm,
+        router_class.clone(),
+        "options",
+        Box::new(uzumibi_router_options),
+    );
 
     mrb_define_cmethod(
         vm,
@@ -110,6 +116,7 @@ const ROUTES_KEY_GET: &str = "@_art_router_get";
 const ROUTES_KEY_POST: &str = "@_art_router_post";
 const ROUTES_KEY_PUT: &str = "@_art_router_put";
 const ROUTES_KEY_DELETE: &str = "@_art_router_delete";
+const ROUTES_KEY_OPTIONS: &str = "@_art_router_options";
 const REQUEST_KEY: &str = "@_request";
 const REQUEST_BUF_KEY: &str = "@_request_buf";
 
@@ -119,6 +126,7 @@ fn get_router_key_for_method(method: &str) -> &'static str {
         "POST" => ROUTES_KEY_POST,
         "PUT" => ROUTES_KEY_PUT,
         "DELETE" => ROUTES_KEY_DELETE,
+        "OPTIONS" => ROUTES_KEY_OPTIONS,
         _ => ROUTES_KEY_GET,
     }
 }
@@ -153,7 +161,7 @@ fn uzumibi_router_routes(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
     let klass = vm.getself()?;
     let hash = mrb_hash_new(vm, &[])?;
 
-    for method in ["GET", "POST", "PUT", "DELETE"] {
+    for method in ["GET", "POST", "PUT", "DELETE", "OPTIONS"] {
         let router_key = get_router_key_for_method(method);
         if !klass.get_ivar(router_key).is_falsy() {
             let router = klass.get_ivar(router_key);
@@ -207,6 +215,10 @@ fn uzumibi_router_delete(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject
 fn uzumibi_router_head(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     // HEAD uses the same router as GET
     uzumibi_router_set_route_with_method(vm, "GET", args)
+}
+
+fn uzumibi_router_options(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    uzumibi_router_set_route_with_method(vm, "OPTIONS", args)
 }
 
 fn uzumibi_initialize_request(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
