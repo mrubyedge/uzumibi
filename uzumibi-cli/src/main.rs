@@ -79,7 +79,7 @@ fn create_project(
     println!("Creating project '{}'...", project_name);
 
     // Copy template files recursively
-    copy_dir_recursive(template_dir, target_path, project_name, Path::new(""))?;
+    copy_dir_recursive(template_dir, target_path, project_name, dest_dir, Path::new(""))?;
 
     println!(
         "\n✓ Successfully created project from template '{}'",
@@ -95,6 +95,7 @@ fn copy_dir_recursive(
     source: &Dir,
     target: &Path,
     project_name: &str,
+    dest_dir: &str,
     relative_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Copy all files in current directory
@@ -130,7 +131,7 @@ fn copy_dir_recursive(
 
         println!(
             "  \x1b[1mgenerate\x1b[0m {}/{}",
-            project_name,
+            dest_dir,
             display_path.display()
         );
     }
@@ -142,7 +143,7 @@ fn copy_dir_recursive(
         let new_relative_path = relative_path.join(dir_name);
 
         fs::create_dir_all(&target_subdir)?;
-        copy_dir_recursive(dir, &target_subdir, project_name, &new_relative_path)?;
+        copy_dir_recursive(dir, &target_subdir, project_name, dest_dir, &new_relative_path)?;
     }
 
     Ok(())
