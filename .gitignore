@@ -1,6 +1,7 @@
 node_modules/*
 /target
 /tmp
+/.claude
 
 *.out
 *.wasm

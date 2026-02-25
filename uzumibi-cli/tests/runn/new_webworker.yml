@@ -1,7 +1,7 @@
 desc: Test uzumibi new command with webworker template
 vars:
-  binary: ../target/release/uzumibi
-  tmpdir: ../tmp
+  binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
+  tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
   project_name: test-webworker-project
   template: webworker
 steps:

@@ -1,6 +1,6 @@
 desc: Test uzumibi CLI help command
 vars:
-  binary: ../target/release/uzumibi
+  binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   version: 0.5.0
 steps:
   build:

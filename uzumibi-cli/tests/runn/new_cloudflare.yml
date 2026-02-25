@@ -2,8 +2,8 @@ desc: Test uzumibi new command with cloudflare template
 runners:
   req: http://127.0.0.1:8787
 vars:
-  binary: ../target/release/uzumibi
-  tmpdir: ../tmp
+  binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
+  tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
   project_name: test-cloudflare-project
   template: cloudflare
 steps:
@@ -74,7 +74,7 @@ steps:
   wait_for_server:
     desc: Wait for server to start
     exec:
-      command: sleep 7
+      command: for i in $(seq 1 300); do curl -s -o /dev/null http://127.0.0.1:8787 && exit 0; sleep 0.1; done; exit 1
     test: current.exit_code == 0
 
   test_root_request:
