@@ -19,12 +19,16 @@ struct Cli {
 enum Commands {
     /// Create a new edge application project
     New {
-        /// Template type (cloudflare, fastly, spin)
+        /// Template type (cloudflare, cloudrun, fastly, spin, serviceworker, webworker)
         #[arg(short, long)]
         template: String,
 
         /// Project name, which will be used as the directory name
         project_name: String,
+
+        /// Destination directory (defaults to project_name)
+        #[arg(short, long)]
+        dest_dir: Option<String>,
     },
 }
 
@@ -35,8 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::New {
             template,
             project_name,
+            dest_dir,
         } => {
-            create_project(&template, &project_name)?;
+            let dest = dest_dir.as_deref().unwrap_or(&project_name);
+            create_project(&template, &project_name, dest)?;
         }
     }
 
@@ -50,7 +56,11 @@ fn available_templates() -> Vec<&'static str> {
         .collect()
 }
 
-fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn create_project(
+    template: &str,
+    project_name: &str,
+    dest_dir: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Check if template exists
     let template_dir = TEMPLATES.get_dir(template).ok_or_else(|| {
         eprintln!("Available templates: {:?}", available_templates());
@@ -58,9 +68,9 @@ fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std:
     })?;
 
     // Check if target directory already exists
-    let target_path = Path::new(project_name);
+    let target_path = Path::new(dest_dir);
     if target_path.exists() {
-        return Err(format!("Directory '{}' already exists", project_name).into());
+        return Err(format!("Directory '{}' already exists", dest_dir).into());
     }
 
     // Create target directory
@@ -69,13 +79,13 @@ fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std:
     println!("Creating project '{}'...", project_name);
 
     // Copy template files recursively
-    copy_dir_recursive(template_dir, target_path, project_name, Path::new(""))?;
+    copy_dir_recursive(template_dir, target_path, project_name, dest_dir, Path::new(""))?;
 
     println!(
         "\n✓ Successfully created project from template '{}'",
         template
     );
-    println!("  Run 'cd {}' to get started!", project_name);
+    println!("  Run 'cd {}' to get started!", dest_dir);
     print_project_next_steps(template, project_name);
 
     Ok(())
@@ -85,6 +95,7 @@ fn copy_dir_recursive(
     source: &Dir,
     target: &Path,
     project_name: &str,
+    dest_dir: &str,
     relative_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Copy all files in current directory
@@ -120,7 +131,7 @@ fn copy_dir_recursive(
 
         println!(
             "  \x1b[1mgenerate\x1b[0m {}/{}",
-            project_name,
+            dest_dir,
             display_path.display()
         );
     }
@@ -132,7 +143,7 @@ fn copy_dir_recursive(
         let new_relative_path = relative_path.join(dir_name);
 
         fs::create_dir_all(&target_subdir)?;
-        copy_dir_recursive(dir, &target_subdir, project_name, &new_relative_path)?;
+        copy_dir_recursive(dir, &target_subdir, project_name, dest_dir, &new_relative_path)?;
     }
 
     Ok(())
@@ -154,6 +165,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("     • Rust & Cargo:");
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!(
+                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
             );
             println!("     • Node.js tools:");
             println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
@@ -193,6 +207,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
+            println!(
+                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
+            );
             println!("     • Fastly CLI:");
             println!("     \x1b[36mbrew install fastly/tap/fastly\x1b[0m");
             println!("     Or visit: https://www.fastly.com/documentation/reference/tools/cli/");
@@ -210,6 +227,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
+            println!(
+                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
+            );
             println!("     • Spin CLI:");
             println!(
                 "     \x1b[36mcurl -fsSL https://developer.fermyon.com/downloads/install.sh | bash\x1b[0m"
@@ -223,13 +243,37 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("  3. Deploy to Fermyon Cloud:");
             println!("     \x1b[36mspin deploy\x1b[0m");
         }
+        "serviceworker" | "webworker" => {
+            println!("  0. Install required tools (if not installed):");
+            println!("     • Rust & Cargo:");
+            println!(
+                "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!(
+                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
+            );
+            println!();
+            println!("  1. Build WebAssembly:");
+            println!("     \x1b[36mmake wasm\x1b[0m");
+            println!("  2. Start local server:");
+            println!("     \x1b[36mmake serve\x1b[0m");
+        }
         _ => {
             unreachable!("  Unknown template: {}", template);
         }
     }
 
     println!();
-    println!(
-        "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"
-    );
+    match template {
+        "serviceworker" | "webworker" => {
+            println!(
+                "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m and \x1b[33mpublic/index.html\x1b[0m to develop your custom SPA application"
+            );
+        }
+        _ => {
+            println!(
+                "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"
+            );
+        }
+    }
 }
