@@ -19,7 +19,7 @@ struct Cli {
 enum Commands {
     /// Create a new edge application project
     New {
-        /// Template type (cloudflare, fastly, spin)
+        /// Template type (cloudflare, cloudrun, fastly, spin, serviceworker, webworker)
         #[arg(short, long)]
         template: String,
 
@@ -223,13 +223,34 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("  3. Deploy to Fermyon Cloud:");
             println!("     \x1b[36mspin deploy\x1b[0m");
         }
+        "serviceworker" | "webworker" => {
+            println!("  0. Install required tools (if not installed):");
+            println!("     • Rust & Cargo:");
+            println!(
+                "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!();
+            println!("  1. Build WebAssembly:");
+            println!("     \x1b[36mmake wasm\x1b[0m");
+            println!("  2. Start local server:");
+            println!("     \x1b[36mmake serve\x1b[0m");
+        }
         _ => {
             unreachable!("  Unknown template: {}", template);
         }
     }
 
     println!();
-    println!(
-        "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"
-    );
+    match template {
+        "serviceworker" | "webworker" => {
+            println!(
+                "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m and \x1b[33mpublic/index.html\x1b[0m to develop your custom SPA application"
+            );
+        }
+        _ => {
+            println!(
+                "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"
+            );
+        }
+    }
 }
