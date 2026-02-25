@@ -23,7 +23,7 @@ steps:
       command: "{{ vars.binary }} new --help"
     test: |
       current.exit_code == 0 &&
-      current.stdout contains 'Usage: uzumibi new --template <TEMPLATE> <PROJECT_NAME>'
+      current.stdout contains 'Usage: uzumibi new [OPTIONS] --template <TEMPLATE> <PROJECT_NAME>'
 
   version:
     desc: Show version

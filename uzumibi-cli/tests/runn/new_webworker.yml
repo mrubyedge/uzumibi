@@ -1,6 +1,10 @@
 desc: Test uzumibi new command with webworker template
 runners:
-  cc: chrome://new
+  cc:
+    addr: chrome://new
+    flags:
+      window-size: "800,600"
+      # headless: false # if you want to debug
 vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
@@ -80,6 +84,20 @@ steps:
         - text: '#status'
     test: |
       current.text contains 'Web Worker ready!'
+
+  test_uzumibi_access_via_fetch:
+    desc: Fetch from worker and verify response
+    cc:
+      actions:
+        - navigate: http://127.0.0.1:8080
+        - waitVisible: '#worker-ready'
+        - evaluate: |
+            document.querySelector('#custom-path').value = '/';
+        - click: '#btn-custom'
+        - waitVisible: '#content pre'
+        - text: '#content pre'
+    test: |
+      current.text contains 'It works!'
 
   cleanup_after:
     desc: Clean up test directory
