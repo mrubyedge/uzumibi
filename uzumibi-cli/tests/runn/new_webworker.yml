@@ -27,7 +27,6 @@ steps:
 
   create_project:
     desc: Create new webworker project
-    dump: steps
     exec:
       command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}
     test: |
@@ -77,7 +76,7 @@ steps:
     cc:
       actions:
         - navigate: http://127.0.0.1:8080
-        - wait: 'document.querySelector("#status").textContent.includes("ready")'
+        - waitVisible: '#worker-ready'
         - text: '#status'
     test: |
       current.text contains 'Web Worker ready!'
