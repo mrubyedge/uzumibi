@@ -1,4 +1,6 @@
 desc: Test uzumibi new command with webworker template
+runners:
+  cc: chrome://new
 vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
@@ -25,6 +27,7 @@ steps:
 
   create_project:
     desc: Create new webworker project
+    dump: steps
     exec:
       command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}
     test: |
@@ -50,6 +53,34 @@ steps:
     exec:
       command: test -f {{ vars.tmpdir }}/{{ vars.project_name }}/public/index.html
     test: current.exit_code == 0
+
+  build_wasm:
+    desc: Build WebAssembly
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && make wasm
+    test: current.exit_code == 0
+
+  start_server:
+    desc: Start dev server in background
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && make serve
+      background: true
+
+  wait_for_server:
+    desc: Wait for server to start
+    exec:
+      command: for i in $(seq 1 300); do curl -s -o /dev/null http://127.0.0.1:8080 && exit 0; sleep 0.1; done; exit 1
+    test: current.exit_code == 0
+
+  test_browser_access:
+    desc: Access page via CDP and verify web worker is ready
+    cc:
+      actions:
+        - navigate: http://127.0.0.1:8080
+        - wait: 'document.querySelector("#status").textContent.includes("ready")'
+        - text: '#status'
+    test: |
+      current.text contains 'Web Worker ready!'
 
   cleanup_after:
     desc: Clean up test directory
