@@ -1,51 +1,88 @@
-# desc: Test uzumibi new command with fastly template
-# vars:
-#   binary: ./target/release/uzumibi
-#   project_name: test-fastly-project
-#   template: fastly
-# steps:
-#   build:
-#     desc: Build release binary
-#     exec:
-#       command: cargo build --release --quiet
-#     test: current.exit_code == 0
+desc: Test uzumibi new command with fastly template
+runners:
+  req: http://127.0.0.1:7676
+vars:
+  binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
+  tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
+  project_name: test-fastly-project
+  template: fastly
+steps:
+  build:
+    desc: Build release binary
+    exec:
+      command: cargo build --release --quiet
+    test: current.exit_code == 0
 
-#   cleanup_before:
-#     desc: Clean up existing test directory
-#     exec:
-#       command: rm -rf {{ vars.project_name }}
-#     test: current.exit_code == 0
+  setup_tmpdir:
+    desc: Setup temp directory
+    exec:
+      command: mkdir -p {{ vars.tmpdir }}
+    test: current.exit_code == 0
 
-#   create_project:
-#     desc: Create new fastly project
-#     exec:
-#       command: "{{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}"
-#     test: |
-#       current.exit_code == 0 &&
-#       current.stdout contains 'Successfully created project'
+  cleanup_before:
+    desc: Clean up existing test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    test: current.exit_code == 0
 
-#   check_cargo_toml:
-#     desc: Check Cargo.toml exists and has correct project name
-#     exec:
-#       command: cat {{ vars.project_name }}/Cargo.toml
-#     test: |
-#       current.exit_code == 0 &&
-#       current.stdout contains 'name = "test-fastly-project"'
+  create_project:
+    desc: Create new fastly project
+    exec:
+      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}
+    test: |
+      current.exit_code == 0 &&
+      current.stdout contains 'Successfully created project'
 
-#   check_app_rb:
-#     desc: Check lib/app.rb exists
-#     exec:
-#       command: test -f {{ vars.project_name }}/lib/app.rb
-#     test: current.exit_code == 0
+  check_cargo_toml:
+    desc: Check Cargo.toml exists and has correct project name
+    exec:
+      command: cat {{ vars.tmpdir }}/{{ vars.project_name }}/Cargo.toml
+    test: |
+      current.exit_code == 0 &&
+      current.stdout contains 'name = "test-fastly-project"'
 
-#   check_fastly_toml:
-#     desc: Check fastly.toml exists
-#     exec:
-#       command: test -f {{ vars.project_name }}/fastly.toml
-#     test: current.exit_code == 0
+  check_app_rb:
+    desc: Check lib/app.rb exists
+    exec:
+      command: test -f {{ vars.tmpdir }}/{{ vars.project_name }}/lib/app.rb
+    test: current.exit_code == 0
 
-#   cleanup_after:
-#     desc: Clean up test directory
-#     exec:
-#       command: rm -rf {{ vars.project_name }}
-#     test: current.exit_code == 0
+  check_fastly_toml:
+    desc: Check fastly.toml exists
+    exec:
+      command: test -f {{ vars.tmpdir }}/{{ vars.project_name }}/fastly.toml
+    test: current.exit_code == 0
+
+  build_project:
+    desc: Build the fastly project
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && fastly compute build
+    test: current.exit_code == 0
+
+  start_server:
+    desc: Start fastly local server in background
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && fastly compute serve
+      background: true
+
+  wait_for_server:
+    desc: Wait for server to start
+    exec:
+      command: for i in $(seq 1 300); do curl -s -o /dev/null http://127.0.0.1:7676 && exit 0; sleep 0.1; done; exit 1
+    test: current.exit_code == 0
+
+  test_root_request:
+    desc: Send request to root path
+    req:
+      "/":
+        get:
+          body: null
+    test: |
+      current.res.status == 200 &&
+      current.res.rawBody contains 'It works!'
+
+  cleanup_after:
+    desc: Clean up test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    test: current.exit_code == 0
