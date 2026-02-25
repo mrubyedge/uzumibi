@@ -25,6 +25,10 @@ enum Commands {
 
         /// Project name, which will be used as the directory name
         project_name: String,
+
+        /// Destination directory (defaults to project_name)
+        #[arg(short, long)]
+        dest_dir: Option<String>,
     },
 }
 
@@ -35,8 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::New {
             template,
             project_name,
+            dest_dir,
         } => {
-            create_project(&template, &project_name)?;
+            let dest = dest_dir.as_deref().unwrap_or(&project_name);
+            create_project(&template, &project_name, dest)?;
         }
     }
 
@@ -50,7 +56,11 @@ fn available_templates() -> Vec<&'static str> {
         .collect()
 }
 
-fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn create_project(
+    template: &str,
+    project_name: &str,
+    dest_dir: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Check if template exists
     let template_dir = TEMPLATES.get_dir(template).ok_or_else(|| {
         eprintln!("Available templates: {:?}", available_templates());
@@ -58,9 +68,9 @@ fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std:
     })?;
 
     // Check if target directory already exists
-    let target_path = Path::new(project_name);
+    let target_path = Path::new(dest_dir);
     if target_path.exists() {
-        return Err(format!("Directory '{}' already exists", project_name).into());
+        return Err(format!("Directory '{}' already exists", dest_dir).into());
     }
 
     // Create target directory
@@ -75,7 +85,7 @@ fn create_project(template: &str, project_name: &str) -> Result<(), Box<dyn std:
         "\n✓ Successfully created project from template '{}'",
         template
     );
-    println!("  Run 'cd {}' to get started!", project_name);
+    println!("  Run 'cd {}' to get started!", dest_dir);
     print_project_next_steps(template, project_name);
 
     Ok(())
@@ -155,6 +165,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
+            println!(
+                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
+            );
             println!("     • Node.js tools:");
             println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
             println!();
@@ -193,6 +206,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
+            println!(
+                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
+            );
             println!("     • Fastly CLI:");
             println!("     \x1b[36mbrew install fastly/tap/fastly\x1b[0m");
             println!("     Or visit: https://www.fastly.com/documentation/reference/tools/cli/");
@@ -209,6 +225,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("     • Rust & Cargo:");
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!(
+                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
             );
             println!("     • Spin CLI:");
             println!(
@@ -228,6 +247,9 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("     • Rust & Cargo:");
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
+            );
+            println!(
+                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
             );
             println!();
             println!("  1. Build WebAssembly:");
