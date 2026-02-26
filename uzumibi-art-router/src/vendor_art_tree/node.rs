@@ -3,6 +3,9 @@ use std::mem::MaybeUninit;
 use std::ptr::slice_from_raw_parts;
 use std::{mem, ptr};
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::*;
+
 pub trait Node<V> {
     fn insert(&mut self, key: u8, value: V) -> Option<InsertError<V>>;
     fn remove(&mut self, key: u8) -> Option<V>;
