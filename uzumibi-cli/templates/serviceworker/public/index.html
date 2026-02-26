@@ -16,6 +16,7 @@
         <button id="btn-custom" style="margin: 5px; padding: 10px 20px;">Request Custom Path</button>
     </div>
 
+    <div id="worker-ready" style="display:none"></div>
     <div id="content"></div>
 
     <script>
@@ -85,6 +86,7 @@
                 .then(() => {
                     console.log('Service Worker is ready');
                     document.getElementById('status').textContent = 'Service Worker ready! Click a button to make a request.';
+                    document.getElementById('worker-ready').style.display = 'block';
 
                     // Setup button event listeners
                     document.getElementById('btn-custom').addEventListener('click', () => {
