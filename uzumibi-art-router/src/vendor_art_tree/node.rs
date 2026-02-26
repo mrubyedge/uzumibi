@@ -4,19 +4,7 @@ use std::ptr::slice_from_raw_parts;
 use std::{mem, ptr};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::__m128i;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_mm_cmpeq_epi8;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_mm_loadu_si128;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_mm_movemask_epi8;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_mm_set_epi8;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_mm_set1_epi8;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::_tzcnt_u32;
+use std::arch::x86_64::*;
 
 pub trait Node<V> {
     fn insert(&mut self, key: u8, value: V) -> Option<InsertError<V>>;
@@ -44,7 +32,6 @@ impl<V, const N: usize> Drop for FlatNode<V, N> {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "sse2")]
 unsafe fn key_index_sse(key: u8, keys_vec: __m128i, vec_len: usize) -> Option<usize> {
     debug_assert!(vec_len <= 16);
     let search_key_vec = _mm_set1_epi8(key as i8);
