@@ -4,7 +4,7 @@ runners:
     addr: chrome://new
     flags:
       window-size: "800,600"
-      no-sandbox: true
+      no-sandbox: true # for CI...
       # headless: false # if you want to debug
 vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}

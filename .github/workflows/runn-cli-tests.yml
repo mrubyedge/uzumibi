@@ -42,9 +42,6 @@ jobs:
           repo: k1LoW/runn
           bin-match: runn
 
-      - name: Build CLI
-        run: cargo build --release --quiet -p uzumibi-cli
-
       - name: Run help tests
         working-directory: uzumibi-cli/tests/runn
         env:
@@ -99,9 +96,6 @@ jobs:
           repo: k1LoW/runn
           bin-match: runn
 
-      - name: Build CLI
-        run: cargo build --release --quiet -p uzumibi-cli
-
       - name: Run cloudflare tests
         working-directory: uzumibi-cli/tests/runn
         env:
@@ -110,14 +104,45 @@ jobs:
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run new_cloudflare.yml --verbose
 
+  cloudrun-test:
+    name: Cloud Run template test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-cloudrun-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-cloudrun-
+    
+      - name: Install runn
+        uses: k1LoW/gh-setup@v1
+        with:
+          repo: k1LoW/runn
+          bin-match: runn
+
+      - name: Run cloudrun tests
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+        run: runn run new_cloudrun.yml --verbose
+
   webworker-test:
     name: WebWorker template test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Chrome Sandbox
-        uses: ueokande/setup-chrome-sandbox@v1
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -140,9 +165,6 @@ jobs:
         with:
           repo: k1LoW/runn
           bin-match: runn
-
-      - name: Build CLI
-        run: cargo build --release --quiet -p uzumibi-cli
 
       - name: Run webworker tests
         working-directory: uzumibi-cli/tests/runn
