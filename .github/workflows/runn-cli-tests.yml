@@ -48,6 +48,7 @@ jobs:
       - name: Run help tests
         working-directory: uzumibi-cli/tests/runn
         env:
+          RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run help.yml --verbose
@@ -55,6 +56,7 @@ jobs:
       - name: Run error_cases tests
         working-directory: uzumibi-cli/tests/runn
         env:
+          RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run error_cases.yml --verbose
@@ -103,6 +105,7 @@ jobs:
       - name: Run cloudflare tests
         working-directory: uzumibi-cli/tests/runn
         env:
+          RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run new_cloudflare.yml --verbose
@@ -141,6 +144,7 @@ jobs:
       - name: Run webworker tests
         working-directory: uzumibi-cli/tests/runn
         env:
+          RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run new_webworker.yml --verbose
