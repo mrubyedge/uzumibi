@@ -4,7 +4,19 @@ use std::ptr::slice_from_raw_parts;
 use std::{mem, ptr};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use std::arch::x86_64::*;
+use std::arch::x86_64::__m128i;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_mm_cmpeq_epi8;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_mm_loadu_si128;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_mm_movemask_epi8;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_mm_set_epi8;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_mm_set1_epi8;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::_tzcnt_u32;
 
 pub trait Node<V> {
     fn insert(&mut self, key: u8, value: V) -> Option<InsertError<V>>;
