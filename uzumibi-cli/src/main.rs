@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
+use dialoguer::Select;
 use include_dir::{Dir, include_dir};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 
 static TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
@@ -29,6 +31,10 @@ enum Commands {
         /// Destination directory (defaults to project_name)
         #[arg(short, long)]
         dest_dir: Option<String>,
+
+        /// Overwrite existing files without prompting
+        #[arg(short, long, default_value_t = false)]
+        force: bool,
     },
 }
 
@@ -40,9 +46,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             template,
             project_name,
             dest_dir,
+            force,
         } => {
             let dest = dest_dir.as_deref().unwrap_or(&project_name);
-            create_project(&template, &project_name, dest)?;
+            create_project(&template, &project_name, dest, force)?;
         }
     }
 
@@ -60,6 +67,7 @@ fn create_project(
     template: &str,
     project_name: &str,
     dest_dir: &str,
+    force: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check if template exists
     let template_dir = TEMPLATES.get_dir(template).ok_or_else(|| {
@@ -67,19 +75,23 @@ fn create_project(
         format!("Template '{}' not found", template,)
     })?;
 
-    // Check if target directory already exists
+    // Create target directory if not exists
     let target_path = Path::new(dest_dir);
-    if target_path.exists() {
-        return Err(format!("Directory '{}' already exists", dest_dir).into());
+    if !target_path.exists() {
+        fs::create_dir_all(target_path)?;
     }
-
-    // Create target directory
-    fs::create_dir_all(target_path)?;
 
     println!("Creating project '{}'...", project_name);
 
     // Copy template files recursively
-    copy_dir_recursive(template_dir, target_path, project_name, dest_dir, Path::new(""))?;
+    copy_dir_recursive(
+        template_dir,
+        target_path,
+        project_name,
+        dest_dir,
+        Path::new(""),
+        force,
+    )?;
 
     println!(
         "\n✓ Successfully created project from template '{}'",
@@ -97,6 +109,7 @@ fn copy_dir_recursive(
     project_name: &str,
     dest_dir: &str,
     relative_path: &Path,
+    force: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Copy all files in current directory
     for file in source.files() {
@@ -116,21 +129,41 @@ fn copy_dir_recursive(
         let content = file.contents();
         let content_str = std::str::from_utf8(content);
 
-        match content_str {
-            Ok(text) => {
-                // Text file - apply template substitution
-                let substituted = substitute_project_name(text, project_name);
-                let mut f = fs::File::create(&target_file)?;
-                f.write_all(substituted.as_bytes())?;
-            }
-            Err(_) => {
-                // Binary file - copy as-is
-                fs::write(&target_file, content)?;
+        let new_content = match content_str {
+            Ok(text) => substitute_project_name(text, project_name).into_bytes(),
+            Err(_) => content.to_vec(),
+        };
+
+        // Check if file already exists
+        if target_file.exists() && !force {
+            match prompt_overwrite(&target_file, &new_content, dest_dir, &display_path)? {
+                OverwriteAction::Overwrite => {}
+                OverwriteAction::Skip => {
+                    println!(
+                        "  \x1b[33mskip     \x1b[0m {}/{}",
+                        dest_dir,
+                        display_path.display()
+                    );
+                    continue;
+                }
+                OverwriteAction::Abort => {
+                    return Err("Aborted by user".into());
+                }
             }
         }
 
+        let action = if target_file.exists() {
+            "overwrite"
+        } else {
+            "generate "
+        };
+
+        let mut f = fs::File::create(&target_file)?;
+        f.write_all(&new_content)?;
+
         println!(
-            "  \x1b[1mgenerate\x1b[0m {}/{}",
+            "  \x1b[1m{}\x1b[0m {}/{}",
+            action,
             dest_dir,
             display_path.display()
         );
@@ -143,9 +176,91 @@ fn copy_dir_recursive(
         let new_relative_path = relative_path.join(dir_name);
 
         fs::create_dir_all(&target_subdir)?;
-        copy_dir_recursive(dir, &target_subdir, project_name, dest_dir, &new_relative_path)?;
+        copy_dir_recursive(
+            dir,
+            &target_subdir,
+            project_name,
+            dest_dir,
+            &new_relative_path,
+            force,
+        )?;
     }
 
+    Ok(())
+}
+
+#[derive(Debug, PartialEq)]
+enum OverwriteAction {
+    Overwrite,
+    Skip,
+    Abort,
+}
+
+fn prompt_overwrite(
+    existing_file: &Path,
+    new_content: &[u8],
+    dest_dir: &str,
+    display_path: &Path,
+) -> Result<OverwriteAction, Box<dyn std::error::Error>> {
+    loop {
+        let items = vec![
+            "Yes (overwrite)",
+            "No (skip)",
+            "Diff (show differences)",
+            "Abort (stop generation)",
+        ];
+
+        let selection = Select::new()
+            .with_prompt(format!(
+                "  \x1b[33mconflict\x1b[0m  {}/{} already exists. Overwrite?",
+                dest_dir,
+                display_path.display()
+            ))
+            .items(&items)
+            .default(1)
+            .interact()?;
+
+        match selection {
+            0 => return Ok(OverwriteAction::Overwrite),
+            1 => return Ok(OverwriteAction::Skip),
+            2 => {
+                show_diff(existing_file, new_content)?;
+                // Loop again to ask after showing diff
+            }
+            3 => return Ok(OverwriteAction::Abort),
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn show_diff(existing_file: &Path, new_content: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    // Write new content to a temporary file for diff
+    let tmp_path = std::env::temp_dir().join(".uzumibi_diff_tmp");
+    fs::write(&tmp_path, new_content)?;
+
+    let status = Command::new("diff")
+        .arg("-u")
+        .arg("--color=auto")
+        .arg(existing_file)
+        .arg(&tmp_path)
+        .status();
+
+    match status {
+        Ok(s) => {
+            if s.success() {
+                println!("  (no differences)");
+            }
+        }
+        Err(_) => {
+            eprintln!("  Warning: 'diff' command not found, showing raw comparison");
+            let existing = fs::read_to_string(existing_file).unwrap_or_default();
+            let new_str = String::from_utf8_lossy(new_content);
+            eprintln!("--- existing ---\n{}", existing);
+            eprintln!("--- new ---\n{}", new_str);
+        }
+    }
+
+    let _ = fs::remove_file(&tmp_path);
     Ok(())
 }
 
@@ -166,9 +281,7 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
-            println!(
-                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
-            );
+            println!("     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m");
             println!("     • Node.js tools:");
             println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
             println!();
@@ -207,9 +320,7 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
-            println!(
-                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
-            );
+            println!("     \x1b[36mrustup target add wasm32-wasip1\x1b[0m");
             println!("     • Fastly CLI:");
             println!("     \x1b[36mbrew install fastly/tap/fastly\x1b[0m");
             println!("     Or visit: https://www.fastly.com/documentation/reference/tools/cli/");
@@ -227,9 +338,7 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
-            println!(
-                "     \x1b[36mrustup target add wasm32-wasip1\x1b[0m"
-            );
+            println!("     \x1b[36mrustup target add wasm32-wasip1\x1b[0m");
             println!("     • Spin CLI:");
             println!(
                 "     \x1b[36mcurl -fsSL https://developer.fermyon.com/downloads/install.sh | bash\x1b[0m"
@@ -249,9 +358,7 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!(
                 "     \x1b[36mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\x1b[0m"
             );
-            println!(
-                "     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m"
-            );
+            println!("     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m");
             println!();
             println!("  1. Build WebAssembly:");
             println!("     \x1b[36mmake wasm\x1b[0m");
