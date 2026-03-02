@@ -1,2 +1,4 @@
 node_modules/*
-/target
+wasm-app/target
+src/*.wasm
+*.mrb
