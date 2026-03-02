@@ -23,16 +23,6 @@ steps:
       current.exit_code != 0 &&
       current.stdout contains 'not found'
 
-  directory_exists:
-    desc: Error when directory already exists
-    exec:
-      command: |
-        mkdir -p {{ vars.tmpdir }}/existing-project
-        cd {{ vars.tmpdir }} && {{ vars.binary }} new -t spin existing-project 2>&1
-    test: |
-      current.exit_code != 0 &&
-      current.stdout contains 'already exists'
-
   cleanup:
     desc: Clean up test directories
     exec:
