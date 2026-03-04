@@ -44,7 +44,8 @@ export default {
 					return 0;
 				},
 
-				// Fetch.fetch(url, method, body) -> response body string
+				// Fetch.fetch(url, method, body) -> packed Uzumibi::Response
+				// Format: u16 status | u16 headers_count | (u16 key_size, key, u16 value_size, value)... | u32 body_size | body
 				uzumibi_cf_fetch: async (
 					urlPtr, urlSize,
 					methodPtr, methodSize,
@@ -64,12 +65,53 @@ export default {
 					}
 
 					const response = await fetch(url, fetchOptions);
-					const responseText = await response.text();
-					const responseBytes = encoder.encode(responseText);
-					const length = Math.min(responseBytes.length, resultMaxSize);
+					const responseBody = await response.text();
+
+					// Collect response headers
+					const respHeaders = [];
+					response.headers.forEach((value, key) => {
+						respHeaders.push({ key, value });
+					});
+
+					// Pack into binary format matching Uzumibi::Response#to_shared_memory
+					const resultView = new DataView(memory.buffer, resultPtr, resultMaxSize);
 					const resultBuffer = new Uint8Array(memory.buffer, resultPtr, resultMaxSize);
-					resultBuffer.set(responseBytes.slice(0, length));
-					return length;
+					let pos = 0;
+
+					// Status code (u16 LE)
+					resultView.setUint16(pos, response.status, true);
+					pos += 2;
+
+					// Headers count (u16 LE)
+					resultView.setUint16(pos, respHeaders.length, true);
+					pos += 2;
+
+					// Each header
+					for (const header of respHeaders) {
+						const keyBytes = encoder.encode(header.key);
+						resultView.setUint16(pos, keyBytes.length, true);
+						pos += 2;
+						resultBuffer.set(keyBytes, pos);
+						pos += keyBytes.length;
+
+						const valueBytes = encoder.encode(header.value);
+						resultView.setUint16(pos, valueBytes.length, true);
+						pos += 2;
+						resultBuffer.set(valueBytes, pos);
+						pos += valueBytes.length;
+					}
+
+					// Body size (u32 LE)
+					const bodyBytes = encoder.encode(responseBody);
+					resultView.setUint32(pos, bodyBytes.length, true);
+					pos += 4;
+
+					// Body
+					const bodyLen = Math.min(bodyBytes.length, resultMaxSize - pos);
+					resultBuffer.set(bodyBytes.slice(0, bodyLen), pos);
+					pos += bodyLen;
+
+					return pos;
 				},
 
 				// KV.get(key) -> value string (via Durable Object)

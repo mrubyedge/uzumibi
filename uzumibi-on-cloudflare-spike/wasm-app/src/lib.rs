@@ -8,6 +8,7 @@ use mrubyedge::{
     rite::rite,
     yamrb::{
         helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
+        prelude::hash::{mrb_hash_new, mrb_hash_set_index},
         value::{RObject, RValue},
         vm::VM,
     },
@@ -74,8 +75,14 @@ fn debug_console_log_internal(message: &str) {
 
 // ---- External API wrappers (only when enable-external feature is active) ----
 
+/// Packed response format (same as Uzumibi::Response#to_shared_memory):
+///   u16 LE status_code
+///   u16 LE headers_count
+///   (u16 LE key_size, key bytes, u16 LE value_size, value bytes) * headers_count
+///   u32 LE body_size
+///   body bytes
 #[cfg(feature = "enable-external")]
-fn cf_fetch(url: &str, method: &str, body: &str) -> Result<String, String> {
+fn cf_fetch(url: &str, method: &str, body: &str) -> Result<Vec<u8>, String> {
     const BUFFER_SIZE: usize = 65536;
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
@@ -93,8 +100,7 @@ fn cf_fetch(url: &str, method: &str, body: &str) -> Result<String, String> {
         match result {
             len if len >= 0 => {
                 let len = len as usize;
-                String::from_utf8(buffer[..len].to_vec())
-                    .map_err(|e| format!("Failed to decode UTF-8: {}", e))
+                Ok(buffer[..len].to_vec())
             }
             _ => Err(format!("Fetch failed with return code: {}", result)),
         }
@@ -175,7 +181,7 @@ fn uzumibi_kernel_debug_console_log(
     Ok(RObject::nil().to_refcount_assigned())
 }
 
-/// Fetch.fetch(url, method="GET", body="")
+/// Fetch.fetch(url, method="GET", body="") -> Uzumibi::Response
 #[cfg(feature = "enable-external")]
 fn uzumibi_fetch_class_fetch(
     vm: &mut VM,
@@ -201,13 +207,85 @@ fn uzumibi_fetch_class_fetch(
         String::new()
     };
 
-    match cf_fetch(&url, &method, &body) {
-        Ok(response) => Ok(RObject::string(response).to_refcount_assigned()),
-        Err(e) => Err(mrubyedge::Error::RuntimeError(format!(
-            "Fetch failed: {}",
-            e
-        ))),
+    let packed = cf_fetch(&url, &method, &body)
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Fetch failed: {}", e)))?;
+
+    // Unpack the packed response into Uzumibi::Response
+    unpack_response_to_robject(vm, &packed)
+}
+
+/// Unpack packed binary response into Uzumibi::Response mruby object
+#[cfg(feature = "enable-external")]
+fn unpack_response_to_robject(vm: &mut VM, buf: &[u8]) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let mut offset = 0;
+
+    // Status code (u16 LE)
+    let status_code = u16::from_le_bytes([buf[offset], buf[offset + 1]]);
+    offset += 2;
+
+    // Headers count (u16 LE)
+    let headers_count = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+    offset += 2;
+
+    // Parse headers
+    let headers_hash = mrb_hash_new(vm, &[])?;
+    for _ in 0..headers_count {
+        let key_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2;
+        let key = String::from_utf8_lossy(&buf[offset..offset + key_size]).to_string();
+        offset += key_size;
+
+        let value_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2;
+        let value = String::from_utf8_lossy(&buf[offset..offset + value_size]).to_string();
+        offset += value_size;
+
+        mrb_hash_set_index(
+            headers_hash.clone(),
+            RObject::string(key).to_refcount_assigned(),
+            RObject::string(value).to_refcount_assigned(),
+        )?;
     }
+
+    // Body size (u32 LE)
+    let body_size = u32::from_le_bytes([
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
+    ]) as usize;
+    offset += 4;
+
+    // Body
+    let body = String::from_utf8_lossy(&buf[offset..offset + body_size]).to_string();
+
+    // Create Uzumibi::Response instance
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => {
+            return Err(mrubyedge::Error::RuntimeError(
+                "Uzumibi must be a module".to_string(),
+            ));
+        }
+    };
+    let response_class = uzumibi_module
+        .get_const_by_name("Response")
+        .ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi::Response class not found".to_string())
+        })?;
+    let response = mrb_funcall(vm, Some(response_class), "new", &[])?;
+
+    response.set_ivar(
+        "@status_code",
+        RObject::integer(status_code as i64).to_refcount_assigned(),
+    );
+    response.set_ivar("@headers", headers_hash);
+    response.set_ivar("@body", RObject::string(body).to_refcount_assigned());
+
+    Ok(response)
 }
 
 /// KV.get(key)
