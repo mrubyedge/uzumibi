@@ -1,0 +1,47 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "$$PROJECT_NAME$$",
+    "main": "src/index.js",
+    "compatibility_date": "2025-12-30",
+    "observability": {
+        "enabled": true
+    },
+    /**
+	 * Durable Objects
+	 * Used for Uzumibi::KV.get/set
+	 * https://developers.cloudflare.com/durable-objects/
+	 */
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "UZUMIBI_KV_DATA",
+                "class_name": "UzumibiKVObject"
+            }
+        ]
+    },
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "UzumibiKVObject"
+            ]
+        }
+    ]
+    /**
+	 * Queues
+	 * Used for Uzumibi::Queue.send
+	 * https://developers.cloudflare.com/queues/
+	 */
+    // "queues": {
+    // 	"producers": [
+    // 		{
+    // 			"binding": "MY_QUEUE",
+    // 			"queue": "my-queue-name"
+    // 		}
+    // 	]
+    // }
+}

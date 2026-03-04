@@ -4,38 +4,44 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "uzumibi-on-cloudflare-spike-wip",
+	"name": "uzumibi-on-cloudflare-spike",
 	"main": "src/index.js",
 	"compatibility_date": "2025-12-30",
 	"observability": {
 		"enabled": true
-	}
+	},
 	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * Durable Objects
+	 * Used for Uzumibi::KV.get/set
+	 * https://developers.cloudflare.com/durable-objects/
 	 */
-	// "placement": {  "mode": "smart" }
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UZUMIBI_KV_DATA",
+				"class_name": "UzumibiKVObject"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"UzumibiKVObject"
+			]
+		}
+	]
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 * Queues
+	 * Used for Uzumibi::Queue.send
+	 * https://developers.cloudflare.com/queues/
 	 */
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
-	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
-	/**
-	 * Static Assets
-	 * https://developers.cloudflare.com/workers/static-assets/binding/
-	 */
-	// "assets": {  "directory": "./public/",  "binding": "ASSETS" }
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+	// "queues": {
+	// 	"producers": [
+	// 		{
+	// 			"binding": "MY_QUEUE",
+	// 			"queue": "my-queue-name"
+	// 		}
+	// 	]
+	// }
 }

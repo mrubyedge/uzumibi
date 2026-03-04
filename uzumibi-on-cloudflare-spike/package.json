@@ -1,15 +1,19 @@
 {
-	"name": "uzumibi-on-cloudflare-spike-wip",
+	"name": "uzumibi-on-cloudflare-spike",
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "cargo build --package uzumibi-on-cloudflare-spike --target wasm32-unknown-unknown --release && cp -v -f ../target/wasm32-unknown-unknown/release/uzumibi_on_cloudflare_spike.wasm src/ && wrangler dev",
+		"deploy": "npm run build:wasm:asyncify && wrangler deploy",
+		"dev": "npm run build:wasm:asyncify && wrangler dev",
+		"dev:vanilla": "npm run build:wasm:vanilla && wrangler dev --main src/index.vanilla.js",
+		"build:wasm:vanilla": "cargo build --package uzumibi-on-cloudflare-spike --target wasm32-unknown-unknown --release --no-default-features && cp -v -f ../target/wasm32-unknown-unknown/release/uzumibi_on_cloudflare_spike.wasm src/",
+		"build:wasm:asyncify": "cargo build --package uzumibi-on-cloudflare-spike --target wasm32-unknown-unknown --release --features enable-external && wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --asyncify -O2 ../target/wasm32-unknown-unknown/release/uzumibi_on_cloudflare_spike.wasm -o ./src/uzumibi_on_cloudflare_spike.wasm",
 		"start": "wrangler dev",
 		"test": "vitest"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"asyncify-wasm": "^1.2.0",
 		"vitest": "~3.2.0",
 		"wrangler": "^4.54.0"
 	}

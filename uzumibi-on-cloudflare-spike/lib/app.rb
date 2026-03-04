@@ -24,6 +24,19 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/yesno" do |req, res|
+    remote_res = Uzumibi::Fetch.fetch("https://yesno.wtf/api", "GET", "")
+    debug_console("[Uzumibi] Fetched from yesno.wtf: #{remote_res.status_code}")
+    debug_console("[Uzumibi] headers: #{remote_res.headers.inspect}")
+
+    res.status_code = 200
+    res.headers = {
+      "Content-Type" => "application/json",
+    }
+    res.body = remote_res.body
+    res
+  end
+
   get "/healthz" do |req, res|
     res.status_code = 200
     res.headers = {

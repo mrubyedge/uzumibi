@@ -1,0 +1,182 @@
+import mod from "./uzumibi_on_cloudflare_spike.wasm";
+
+const importObject = {
+	env: {
+		debug_console_log: (ptr, size) => {
+			const memory = exports.memory;
+			let str = "";
+			const buffer = new Uint8Array(memory.buffer);
+			for (let i = ptr; i < ptr + size; i++) {
+				str += String.fromCharCode(buffer[i]);
+			}
+			console.log(`[debug]: ${str}`);
+			return 0;
+		},
+	},
+};
+const instance = await WebAssembly.instantiate(mod, importObject);
+const exports = instance.exports;
+
+export default {
+	async fetch(request, env, ctx) {
+		const reqResult = exports.uzumibi_initialize_request(65536);
+		const reqOffset = Number(reqResult & 0xFFFFFFFFn);
+		if (reqOffset === 0) {
+			const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
+			const decoder = new TextDecoder();
+			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			for (let i = 0; buffer[i] !== 0; i++) {
+				errStr += String.fromCharCode(buffer[i]);
+			}
+			throw new Error(`Failed to initialize request: ${errStr}`);
+		}
+		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
+		const path = new URL(request.url).pathname;
+		if (path === "/favicon.ico") {
+			return new Response(null, { status: 404 });
+		}
+
+		const query = new URL(request.url).searchParams;
+
+		let pos = 0;
+		const encoder = new TextEncoder();
+		const dataView = new DataView(exports.memory.buffer, reqOffset);
+
+		const method = encoder.encode(request.method);
+		requestBuffer.fill(0, pos, pos + 6);
+		requestBuffer.set(method.slice(0, 6), pos);
+		pos += 6;
+
+		// Path size (u16 little-endian)
+		const pathBytes = encoder.encode(path);
+		dataView.setUint16(pos, pathBytes.length, true);
+		pos += 2;
+
+		// Path
+		requestBuffer.set(pathBytes, pos);
+		pos += pathBytes.length;
+
+		// Query string size (u16 little-endian)
+		const queryString = query.toString();
+		const queryBytes = encoder.encode(queryString);
+		dataView.setUint16(pos, queryBytes.length, true);
+		pos += 2;
+
+		// Query string
+		requestBuffer.set(queryBytes, pos);
+		pos += queryBytes.length;
+
+		// Headers
+		const headers = [];
+		request.headers.forEach((value, key) => {
+			// 一般的なヘッダーのみ含める（必要に応じて調整）
+			if (key.toLowerCase() !== 'cf-connecting-ip' &&
+				key.toLowerCase() !== 'cf-ray' &&
+				!key.toLowerCase().startsWith('x-')) {
+				headers.push({ key, value });
+			}
+		});
+
+		// Headers count (u16 little-endian)
+		dataView.setUint16(pos, headers.length, true);
+		pos += 2;
+
+		// Each header
+		for (const header of headers) {
+			// Header key size (u16 little-endian)
+			const keyBytes = encoder.encode(header.key);
+			dataView.setUint16(pos, keyBytes.length, true);
+			pos += 2;
+
+			// Header key
+			requestBuffer.set(keyBytes, pos);
+			pos += keyBytes.length;
+
+			// Header value size (u16 little-endian)
+			const valueBytes = encoder.encode(header.value);
+			dataView.setUint16(pos, valueBytes.length, true);
+			pos += 2;
+
+			// Header value
+			requestBuffer.set(valueBytes, pos);
+			pos += valueBytes.length;
+		}
+
+		// Request body size (u32 little-endian)
+		const bodyBytes = request.body ? new Uint8Array(await request.arrayBuffer()) : new Uint8Array(0);
+		dataView.setUint32(pos, bodyBytes.length, true);
+		pos += 4;
+
+		// Request body
+		requestBuffer.set(bodyBytes, pos);
+		pos += bodyBytes.length;
+
+		if (pos > 65536) {
+			throw new Error("Request data exceeds allocated buffer size");
+		}
+
+		const resResult = exports.uzumibi_start_request();
+		const resOffset = Number(resResult & 0xFFFFFFFFn);
+		if (resOffset === 0) {
+			const errOffset = Number((resResult >> 32n) & 0xFFFFFFFFn);
+			const decoder = new TextDecoder();
+			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			for (let i = 0; buffer[i] !== 0; i++) {
+				errStr += String.fromCharCode(buffer[i]);
+			}
+			throw new Error(`Failed to start request: ${errStr}`);
+		}
+
+		// Unpack response
+		const decoder = new TextDecoder();
+		const resDataView = new DataView(exports.memory.buffer, resOffset);
+
+
+		let resPos = 0;
+
+		// Status code (u16 little-endian)
+		const statusCode = resDataView.getUint16(resPos, true);
+		resPos += 2;
+
+		// Headers count (u16 little-endian)
+		const headersCount = resDataView.getUint16(resPos, true);
+		resPos += 2;
+
+		// Parse headers
+		const responseHeaders = new Headers();
+		for (let i = 0; i < headersCount; i++) {
+			// Header key size (u16 little-endian)
+			const keySize = resDataView.getUint16(resPos, true);
+			resPos += 2;
+
+			// Header key
+			const keyBytes = new Uint8Array(exports.memory.buffer, resOffset + resPos, keySize);
+			const key = decoder.decode(keyBytes);
+			resPos += keySize;
+
+			// Header value size (u16 little-endian)
+			const valueSize = resDataView.getUint16(resPos, true);
+			resPos += 2;
+
+			// Header value
+			const valueBytes = new Uint8Array(exports.memory.buffer, resOffset + resPos, valueSize);
+			const value = decoder.decode(valueBytes);
+			resPos += valueSize;
+
+			console.log(`[Response Header] ${key}: ${value}`);
+			responseHeaders.set(key, value);
+		}
+
+		// Body size (u32 little-endian)
+		const bodySize = resDataView.getUint32(resPos, true);
+		resPos += 4;
+
+		// Body
+		const bodyBuffer = new Uint8Array(exports.memory.buffer, resOffset + resPos, bodySize);
+		const responseText = decoder.decode(bodyBuffer);
+
+		return new Response(responseText, { status: statusCode, headers: responseHeaders });
+	}
+};
