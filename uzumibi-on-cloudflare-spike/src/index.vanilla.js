@@ -1,25 +1,37 @@
-import { DurableObject } from "cloudflare:workers";
-import { instantiate } from "asyncify-wasm";
 import mod from "./uzumibi_on_cloudflare_spike.wasm";
 
-const wasmModule = mod;
-
-/**
- * Durable Object for Uzumibi::KV storage
- */
-export class UzumibiKVObject extends DurableObject {
-	async get(key) {
-		const value = await this.ctx.storage.get(key);
-		return value ?? null;
-	}
-
-	async set(key, value) {
-		await this.ctx.storage.put(key, value);
-	}
-}
+const importObject = {
+	env: {
+		debug_console_log: (ptr, size) => {
+			const memory = exports.memory;
+			let str = "";
+			const buffer = new Uint8Array(memory.buffer);
+			for (let i = ptr; i < ptr + size; i++) {
+				str += String.fromCharCode(buffer[i]);
+			}
+			console.log(`[debug]: ${str}`);
+			return 0;
+		},
+	},
+};
+const instance = await WebAssembly.instantiate(mod, importObject);
+const exports = instance.exports;
 
 export default {
 	async fetch(request, env, ctx) {
+		const reqResult = exports.uzumibi_initialize_request(65536);
+		const reqOffset = Number(reqResult & 0xFFFFFFFFn);
+		if (reqOffset === 0) {
+			const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
+			const decoder = new TextDecoder();
+			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			for (let i = 0; buffer[i] !== 0; i++) {
+				errStr += String.fromCharCode(buffer[i]);
+			}
+			throw new Error(`Failed to initialize request: ${errStr}`);
+		}
+		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
 		const path = new URL(request.url).pathname;
 		if (path === "/favicon.ico") {
 			return new Response(null, { status: 404 });
@@ -27,113 +39,8 @@ export default {
 
 		const query = new URL(request.url).searchParams;
 
-		// Durable Object stub (if binding exists)
-		const doStub = env.UZUMIBI_KV_DATA
-			? env.UZUMIBI_KV_DATA.getByName("default")
-			: null;
-
-		const decoder = new TextDecoder();
-		const encoder = new TextEncoder();
-
-		const importObject = {
-			env: {
-				debug_console_log: (ptr, size) => {
-					const memory = exports.memory;
-					const buffer = new Uint8Array(memory.buffer, ptr, size);
-					console.log(`[debug]: ${decoder.decode(buffer)}`);
-					return 0;
-				},
-
-				// Fetch.fetch(url, method, body) -> response body string
-				uzumibi_cf_fetch: async (
-					urlPtr, urlSize,
-					methodPtr, methodSize,
-					bodyPtr, bodySize,
-					resultPtr, resultMaxSize
-				) => {
-					const memory = exports.memory;
-					const url = decoder.decode(new Uint8Array(memory.buffer, urlPtr, urlSize));
-					const method = decoder.decode(new Uint8Array(memory.buffer, methodPtr, methodSize));
-					const body = bodySize > 0
-						? decoder.decode(new Uint8Array(memory.buffer, bodyPtr, bodySize))
-						: null;
-
-					const fetchOptions = { method };
-					if (body && method !== "GET" && method !== "HEAD") {
-						fetchOptions.body = body;
-					}
-
-					const response = await fetch(url, fetchOptions);
-					const responseText = await response.text();
-					const responseBytes = encoder.encode(responseText);
-					const length = Math.min(responseBytes.length, resultMaxSize);
-					const resultBuffer = new Uint8Array(memory.buffer, resultPtr, resultMaxSize);
-					resultBuffer.set(responseBytes.slice(0, length));
-					return length;
-				},
-
-				// KV.get(key) -> value string (via Durable Object)
-				uzumibi_cf_durable_object_get: async (keyPtr, keySize, resultPtr, resultMaxSize) => {
-					if (!doStub) return -1;
-					const memory = exports.memory;
-					const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
-
-					const value = await doStub.get(key);
-					if (value === null) {
-						return -1;
-					}
-					const valueBytes = encoder.encode(value);
-					const length = Math.min(valueBytes.length, resultMaxSize);
-					const resultBuffer = new Uint8Array(memory.buffer, resultPtr, resultMaxSize);
-					resultBuffer.set(valueBytes.slice(0, length));
-					return length;
-				},
-
-				// KV.set(key, value) (via Durable Object)
-				uzumibi_cf_durable_object_set: async (keyPtr, keySize, valuePtr, valueSize) => {
-					if (!doStub) return -1;
-					const memory = exports.memory;
-					const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
-					const value = decoder.decode(new Uint8Array(memory.buffer, valuePtr, valueSize));
-
-					await doStub.set(key, value);
-					return 0;
-				},
-
-				// Queue.send(queue_name, message)
-				uzumibi_cf_queue_send: async (queueNamePtr, queueNameSize, messagePtr, messageSize) => {
-					const memory = exports.memory;
-					const queueName = decoder.decode(new Uint8Array(memory.buffer, queueNamePtr, queueNameSize));
-					const message = decoder.decode(new Uint8Array(memory.buffer, messagePtr, messageSize));
-
-					const queue = env[queueName];
-					if (!queue) {
-						console.error(`Queue binding '${queueName}' not found`);
-						return -1;
-					}
-					await queue.send(message);
-					return 0;
-				},
-			},
-		};
-
-		const instance = await instantiate(wasmModule, importObject);
-		const exports = instance.exports;
-
-		const reqResult = await exports.uzumibi_initialize_request(65536);
-		const reqOffset = Number(reqResult & 0xFFFFFFFFn);
-		if (reqOffset === 0) {
-			const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
-			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
-			let errStr = "";
-			for (let i = 0; buffer[i] !== 0; i++) {
-				errStr += String.fromCharCode(buffer[i]);
-			}
-			throw new Error(`Failed to initialize request: ${errStr}`);
-		}
-		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
-
 		let pos = 0;
+		const encoder = new TextEncoder();
 		const dataView = new DataView(exports.memory.buffer, reqOffset);
 
 		const method = encoder.encode(request.method);
@@ -163,6 +70,7 @@ export default {
 		// Headers
 		const headers = [];
 		request.headers.forEach((value, key) => {
+			// 一般的なヘッダーのみ含める（必要に応じて調整）
 			if (key.toLowerCase() !== 'cf-connecting-ip' &&
 				key.toLowerCase() !== 'cf-ray' &&
 				!key.toLowerCase().startsWith('x-')) {
@@ -208,12 +116,13 @@ export default {
 			throw new Error("Request data exceeds allocated buffer size");
 		}
 
-		const resResult = await exports.uzumibi_start_request();
+		const resResult = exports.uzumibi_start_request();
 		const resOffset = Number(resResult & 0xFFFFFFFFn);
 		if (resOffset === 0) {
 			const errOffset = Number((resResult >> 32n) & 0xFFFFFFFFn);
-			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
+			const decoder = new TextDecoder();
 			let errStr = "";
+			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
 			for (let i = 0; buffer[i] !== 0; i++) {
 				errStr += String.fromCharCode(buffer[i]);
 			}
@@ -221,7 +130,9 @@ export default {
 		}
 
 		// Unpack response
+		const decoder = new TextDecoder();
 		const resDataView = new DataView(exports.memory.buffer, resOffset);
+
 
 		let resPos = 0;
 
