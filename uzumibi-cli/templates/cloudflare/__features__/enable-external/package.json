@@ -5,7 +5,7 @@
     "scripts": {
         "deploy": "npm run build:wasm:asyncify && wrangler deploy",
         "dev": "npm run build:wasm:asyncify && wrangler dev",
-        "build:wasm:asyncify": "cargo build --package $$PROJECT_NAME$$ --target wasm32-unknown-unknown --release --features enable-external && wasm-opt --enable-bulk-memory-opt --enable-nontrapping-float-to-int --asyncify -O2 target/wasm32-unknown-unknown/release/$$PROJECT_NAME_UNDERSCORE$$.wasm -o ./src/$$PROJECT_NAME_UNDERSCORE$$.wasm",
+        "build:wasm:asyncify": "cargo build --package $$PROJECT_NAME$$ --target wasm32-unknown-unknown --release --features enable-external && wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --asyncify -O2 target/wasm32-unknown-unknown/release/$$PROJECT_NAME_UNDERSCORE$$.wasm -o ./src/$$PROJECT_NAME_UNDERSCORE$$.wasm",
         "start": "wrangler dev",
         "test": "vitest"
     },
