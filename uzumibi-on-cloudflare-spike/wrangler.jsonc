@@ -30,18 +30,18 @@
 				"UzumibiKVObject"
 			]
 		}
-	],
+	]
 	/**
 	 * Queues
 	 * Used for Uzumibi::Queue.send
 	 * https://developers.cloudflare.com/queues/
 	 */
-	"queues": {
-		"producers": [
-			{
-				"binding": "MY_QUEUE",
-				"queue": "my-queue-name"
-			}
-		]
-	}
+	// "queues": {
+	// 	"producers": [
+	// 		{
+	// 			"binding": "MY_QUEUE",
+	// 			"queue": "my-queue-name"
+	// 		}
+	// 	]
+	// }
 }

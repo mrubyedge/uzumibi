@@ -24,6 +24,17 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/yesno" do |req, res|
+    body = Uzumibi::Fetch.fetch("https://yesno.wtf/api", "GET", "")
+
+    res.status_code = 200
+    res.headers = {
+      "Content-Type" => "application/json",
+    }
+    res.body = body
+    res
+  end
+
   get "/healthz" do |req, res|
     res.status_code = 200
     res.headers = {
