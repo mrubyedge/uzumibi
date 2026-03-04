@@ -1,23 +1,14 @@
-name: CLI Integration Tests (runn)
+name: Runn CLI Tests
 
 on:
   push:
-    branches:
-      - master
-    paths:
-      - '**'
+    branches: [main]
   pull_request:
-    paths:
-      - 'uzumibi-cli/**'
-      - '.github/workflows/runn-cli-tests.yml'
-  workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
+    branches: [main]
 
 jobs:
   basic-tests:
-    name: Basic CLI tests (help, error_cases)
+    name: Basic CLI tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,9 +23,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-cli-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-basic-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-cli-
+            ${{ runner.os }}-cargo-basic-
 
       - name: Install runn
         uses: k1LoW/gh-setup@v1
@@ -47,15 +38,13 @@ jobs:
         env:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run help.yml --verbose
 
-      - name: Run error_cases tests
+      - name: Run error case tests
         working-directory: uzumibi-cli/tests/runn
         env:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
         run: runn run error_cases.yml --verbose
 
   cloudflare-test:
@@ -66,8 +55,9 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Cache cargo registry and build
         uses: actions/cache@v4
@@ -79,11 +69,6 @@ jobs:
           key: ${{ runner.os }}-cargo-cloudflare-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-cloudflare-
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -102,6 +87,54 @@ jobs:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+        run: runn run new_cloudflare.yml --verbose
+
+  cloudflare-enable-external-test:
+    name: Cloudflare template test (enable-external)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-cloudflare-ext-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-cloudflare-ext-
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install wasm-opt
+        run: |
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_120/binaryen-version_120-x86_64-linux.tar.gz | tar xz
+          sudo cp binaryen-version_120/bin/wasm-opt /usr/local/bin/
+
+      - name: Install runn
+        uses: k1LoW/gh-setup@v1
+        with:
+          repo: k1LoW/runn
+          bin-match: runn
+
+      - name: Run cloudflare tests with enable-external
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
         run: runn run new_cloudflare.yml --verbose
 
   cloudrun-test:
@@ -123,7 +156,7 @@ jobs:
           key: ${{ runner.os }}-cargo-cloudrun-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-cloudrun-
-    
+
       - name: Install runn
         uses: k1LoW/gh-setup@v1
         with:
@@ -139,15 +172,16 @@ jobs:
         run: runn run new_cloudrun.yml --verbose
 
   webworker-test:
-    name: WebWorker template test
+    name: Web Worker template test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Cache cargo registry and build
         uses: actions/cache@v4

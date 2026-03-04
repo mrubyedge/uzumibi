@@ -4,6 +4,7 @@ runners:
 vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
+  extra_args: ${UZUMIBI_NEW_EXTRA_ARGS:-}
   project_name: test-cloudflare-project
   template: cloudflare
 steps:
@@ -28,7 +29,7 @@ steps:
   create_project:
     desc: Create new cloudflare project
     exec:
-      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.project_name }}
+      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t {{ vars.template }} {{ vars.extra_args }} {{ vars.project_name }}
     test: |
       current.exit_code == 0 &&
       current.stdout contains 'Successfully created project'
