@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use dialoguer::Select;
 use include_dir::{Dir, include_dir};
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -35,6 +36,10 @@ enum Commands {
         /// Overwrite existing files without prompting
         #[arg(short, long, default_value_t = false)]
         force: bool,
+
+        /// Comma-separated list of features to enable (e.g. "enable-external")
+        #[arg(long, value_delimiter = ',')]
+        features: Vec<String>,
     },
 }
 
@@ -47,9 +52,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             project_name,
             dest_dir,
             force,
+            features,
         } => {
             let dest = dest_dir.as_deref().unwrap_or(&project_name);
-            create_project(&template, &project_name, dest, force)?;
+            create_project(&template, &project_name, dest, force, &features)?;
         }
     }
 
@@ -68,6 +74,7 @@ fn create_project(
     project_name: &str,
     dest_dir: &str,
     force: bool,
+    features: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check if template exists
     let template_dir = TEMPLATES.get_dir(template).ok_or_else(|| {
@@ -83,7 +90,10 @@ fn create_project(
 
     println!("Creating project '{}'...", project_name);
 
-    // Copy template files recursively
+    // Collect feature overlay paths to know which files to skip from base
+    let feature_files = collect_feature_overlay_files(template, features);
+
+    // Copy base template files (skip files that will be overridden by feature overlays)
     copy_dir_recursive(
         template_dir,
         target_path,
@@ -91,16 +101,63 @@ fn create_project(
         dest_dir,
         Path::new(""),
         force,
+        &feature_files,
     )?;
+
+    // Apply feature overlays
+    for feature in features {
+        let feature_path = format!("{}/__features__/{}", template, feature);
+        if let Some(feature_dir) = TEMPLATES.get_dir(&feature_path) {
+            copy_dir_recursive(
+                feature_dir,
+                target_path,
+                project_name,
+                dest_dir,
+                Path::new(""),
+                force,
+                &HashSet::new(),
+            )?;
+        }
+    }
 
     println!(
         "\n✓ Successfully created project from template '{}'",
         template
     );
     println!("  Run 'cd {}' to get started!", dest_dir);
-    print_project_next_steps(template, project_name);
+    print_project_next_steps(template, project_name, features);
 
     Ok(())
+}
+
+/// Collect all file paths from feature overlay directories that will replace base files.
+fn collect_feature_overlay_files(template: &str, features: &[String]) -> HashSet<String> {
+    let mut paths = HashSet::new();
+    for feature in features {
+        let feature_path = format!("{}/__features__/{}", template, feature);
+        if let Some(feature_dir) = TEMPLATES.get_dir(&feature_path) {
+            collect_files_recursive(feature_dir, Path::new(""), &mut paths);
+        }
+    }
+    paths
+}
+
+fn collect_files_recursive(dir: &Dir, relative_path: &Path, paths: &mut HashSet<String>) {
+    for file in dir.files() {
+        let file_name = file.path().file_name().unwrap().to_str().unwrap();
+        let actual_file_name = if file_name == "Cargo.toml_" {
+            "Cargo.toml"
+        } else {
+            file_name
+        };
+        let path = relative_path.join(actual_file_name);
+        paths.insert(path.to_string_lossy().to_string());
+    }
+    for sub_dir in dir.dirs() {
+        let dir_name = sub_dir.path().file_name().unwrap();
+        let new_relative = relative_path.join(dir_name);
+        collect_files_recursive(sub_dir, &new_relative, paths);
+    }
 }
 
 fn copy_dir_recursive(
@@ -110,6 +167,7 @@ fn copy_dir_recursive(
     dest_dir: &str,
     relative_path: &Path,
     force: bool,
+    skip_files: &HashSet<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Copy all files in current directory
     for file in source.files() {
@@ -123,8 +181,14 @@ fn copy_dir_recursive(
             file_name_str
         };
 
-        let target_file = target.join(actual_file_name);
         let display_path = relative_path.join(actual_file_name);
+
+        // Skip files that will be provided by a feature overlay
+        if skip_files.contains(&display_path.to_string_lossy().to_string()) {
+            continue;
+        }
+
+        let target_file = target.join(actual_file_name);
 
         let content = file.contents();
         let content_str = std::str::from_utf8(content);
@@ -172,6 +236,13 @@ fn copy_dir_recursive(
     // Recursively copy subdirectories
     for dir in source.dirs() {
         let dir_name = dir.path().file_name().unwrap();
+        let dir_name_str = dir_name.to_str().unwrap();
+
+        // Skip __features__ directory (handled separately)
+        if dir_name_str == "__features__" {
+            continue;
+        }
+
         let target_subdir = target.join(dir_name);
         let new_relative_path = relative_path.join(dir_name);
 
@@ -183,6 +254,7 @@ fn copy_dir_recursive(
             dest_dir,
             &new_relative_path,
             force,
+            skip_files,
         )?;
     }
 
@@ -272,7 +344,9 @@ fn substitute_project_name(content: &str, project_name: &str) -> String {
         .replace("$$PROJECT_NAME_UNDERSCORE$$", &project_name_underscore)
 }
 
-fn print_project_next_steps(template: &str, project_name: &str) {
+fn print_project_next_steps(template: &str, project_name: &str, features: &[String]) {
+    let has_enable_external = features.iter().any(|f| f == "enable-external");
+
     println!("\nNext steps:");
     match template {
         "cloudflare" => {
@@ -284,6 +358,11 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m");
             println!("     • Node.js tools:");
             println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
+            if has_enable_external {
+                println!("     • wasm-opt (Binaryen, required for asyncify):");
+                println!("     \x1b[36mbrew install binaryen\x1b[0m");
+                println!("     Or visit: https://github.com/WebAssembly/binaryen/releases");
+            }
             println!();
             println!("  1. Install dependencies:");
             println!("     \x1b[36mpnpm install\x1b[0m");
@@ -291,6 +370,20 @@ fn print_project_next_steps(template: &str, project_name: &str) {
             println!("     \x1b[36mpnpm run dev\x1b[0m");
             println!("  3. Deploy to Cloudflare:");
             println!("     \x1b[36mpnpm run deploy\x1b[0m");
+            if has_enable_external {
+                println!();
+                println!("  \x1b[33mNote:\x1b[0m This project uses enable-external feature.");
+                println!("  The following Uzumibi APIs are available in Ruby:");
+                println!(
+                    "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"
+                );
+            }
         }
         "cloudrun" => {
             println!("  0. Install required tools and setup account:");
