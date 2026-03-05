@@ -96,6 +96,7 @@ jobs:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
         run: runn run new_cloudflare.yml --verbose
 
   cloudflare-enable-external-test:
@@ -144,6 +145,7 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
+          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
         run: runn run new_cloudflare.yml --verbose
 
   cloudrun-test:

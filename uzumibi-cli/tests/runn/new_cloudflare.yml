@@ -5,7 +5,7 @@ vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
   extra_args: ${UZUMIBI_NEW_EXTRA_ARGS:-}
-  project_name: test-cloudflare-project
+  project_name: ${UZUMIBI_PROJECT_NAME:-test-cloudflare-project}
   template: cloudflare
 steps:
   build:
@@ -40,7 +40,7 @@ steps:
       command: cat {{ vars.tmpdir }}/{{ vars.project_name }}/wasm-app/Cargo.toml
     test: |
       current.exit_code == 0 &&
-      current.stdout contains 'name = "test-cloudflare-project"'
+      !(current.stdout contains '$$PROJECT_NAME$$')
 
   check_app_rb:
     desc: Check lib/app.rb exists
@@ -92,4 +92,5 @@ steps:
     desc: Clean up test directory
     exec:
       command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    dump: steps
     test: current.exit_code == 0
