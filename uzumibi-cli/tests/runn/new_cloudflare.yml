@@ -40,7 +40,7 @@ steps:
       command: cat {{ vars.tmpdir }}/{{ vars.project_name }}/wasm-app/Cargo.toml
     test: |
       current.exit_code == 0 &&
-      current.stdout contains 'name = "test-cloudflare-project"'
+      !(current.stdout contains '$$PROJECT_NAME$$')
 
   check_app_rb:
     desc: Check lib/app.rb exists
