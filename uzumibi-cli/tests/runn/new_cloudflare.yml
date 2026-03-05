@@ -92,4 +92,5 @@ steps:
     desc: Clean up test directory
     exec:
       command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    dump: steps
     test: current.exit_code == 0
