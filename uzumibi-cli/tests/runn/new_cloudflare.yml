@@ -5,7 +5,7 @@ vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
   tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
   extra_args: ${UZUMIBI_NEW_EXTRA_ARGS:-}
-  project_name: test-cloudflare-project
+  project_name: ${UZUMIBI_PROJECT_NAME:-test-cloudflare-project}
   template: cloudflare
 steps:
   build:
