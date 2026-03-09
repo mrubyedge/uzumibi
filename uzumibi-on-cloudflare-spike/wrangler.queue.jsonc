@@ -16,22 +16,22 @@
 	 * Used for Uzumibi::KV.get/set
 	 * https://developers.cloudflare.com/durable-objects/
 	 */
-    // "durable_objects": {
-    //     "bindings": [
-    //         {
-    //             "name": "UZUMIBI_KV_DATA",
-    //             "class_name": "UzumibiKVObject"
-    //         }
-    //     ]
-    // },
-    // "migrations": [
-    //     {
-    //         "tag": "v1",
-    //         "new_sqlite_classes": [
-    //             "UzumibiKVObject"
-    //         ]
-    //     }
-    // ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "UZUMIBI_KV_DATA",
+                "class_name": "UzumibiKVObject"
+            }
+        ]
+    },
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "UzumibiKVObject"
+            ]
+        }
+    ],
     /**
 	 * Queues
 	 * Used for Uzumibi::Queue.send (producer) and Uzumibi::Consumer (consumer)
