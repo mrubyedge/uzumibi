@@ -1,0 +1,18 @@
+{
+    "name": "$$PROJECT_NAME$$",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "deploy": "npm run build:wasm:asyncify && wrangler deploy",
+        "dev": "npm run build:wasm:asyncify && wrangler dev",
+        "build:wasm:asyncify": "cargo build --package $$PROJECT_NAME$$ --target wasm32-unknown-unknown --release --features queue && wasm-opt --enable-bulk-memory --enable-nontrapping-float-to-int --asyncify -O2 target/wasm32-unknown-unknown/release/$$PROJECT_NAME_UNDERSCORE$$.wasm -o ./src/$$PROJECT_NAME_UNDERSCORE$$_queue.wasm",
+        "start": "wrangler dev",
+        "test": "vitest"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-pool-workers": "^0.8.19",
+        "asyncify-wasm": "^1.2.0",
+        "vitest": "~3.2.0",
+        "wrangler": "^4.54.0"
+    }
+}

@@ -91,7 +91,12 @@ fn create_project(
     println!("Creating project '{}'...", project_name);
 
     // Collect feature overlay paths to know which files to skip from base
-    let feature_files = collect_feature_overlay_files(template, features);
+    let mut feature_files = collect_feature_overlay_files(template, features);
+
+    // When queue feature is active, skip app.rb (consumer.rb replaces it)
+    if features.iter().any(|f| f == "queue") {
+        feature_files.insert("lib/app.rb".to_string());
+    }
 
     // Copy base template files (skip files that will be overridden by feature overlays)
     copy_dir_recursive(
@@ -338,14 +343,17 @@ fn show_diff(existing_file: &Path, new_content: &[u8]) -> Result<(), Box<dyn std
 
 fn substitute_project_name(content: &str, project_name: &str) -> String {
     let project_name_underscore = project_name.replace('-', "_");
+    let project_name_kebab = project_name.replace('_', "-");
 
     content
         .replace("$$PROJECT_NAME$$", project_name)
         .replace("$$PROJECT_NAME_UNDERSCORE$$", &project_name_underscore)
+        .replace("$$PROJECT_NAME_KEBAB$$", &project_name_kebab)
 }
 
 fn print_project_next_steps(template: &str, project_name: &str, features: &[String]) {
     let has_enable_external = features.iter().any(|f| f == "enable-external");
+    let has_queue = features.iter().any(|f| f == "queue");
 
     println!("\nNext steps:");
     match template {
@@ -358,7 +366,7 @@ fn print_project_next_steps(template: &str, project_name: &str, features: &[Stri
             println!("     \x1b[36mrustup target add wasm32-unknown-unknown\x1b[0m");
             println!("     • Node.js tools:");
             println!("     \x1b[36mnpm install -g pnpm wrangler\x1b[0m");
-            if has_enable_external {
+            if has_enable_external || has_queue {
                 println!("     • wasm-opt (Binaryen, required for asyncify):");
                 println!("     \x1b[36mbrew install binaryen\x1b[0m");
                 println!("     Or visit: https://github.com/WebAssembly/binaryen/releases");
@@ -370,7 +378,28 @@ fn print_project_next_steps(template: &str, project_name: &str, features: &[Stri
             println!("     \x1b[36mpnpm run dev\x1b[0m");
             println!("  3. Deploy to Cloudflare:");
             println!("     \x1b[36mpnpm run deploy\x1b[0m");
-            if has_enable_external {
+            if has_queue {
+                println!();
+                println!(
+                    "  \x1b[33mNote:\x1b[0m This project uses queue feature (Cloudflare Queues consumer)."
+                );
+                println!(
+                    "  Edit \x1b[36mlib/consumer.rb\x1b[0m to implement your queue consumer logic."
+                );
+                println!("  The following Uzumibi APIs are available in Ruby:");
+                println!(
+                    "    • \x1b[36mUzumibi::Message#ack!\x1b[0m / \x1b[36m#retry(delay_seconds: N)\x1b[0m → Message control"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"
+                );
+            } else if has_enable_external {
                 println!();
                 println!("  \x1b[33mNote:\x1b[0m This project uses enable-external feature.");
                 println!("  The following Uzumibi APIs are available in Ruby:");

@@ -367,7 +367,10 @@ fn uzumibi_queue_class_send(
 
 /// Message.ack! -> delegates to JS
 #[cfg(feature = "queue")]
-fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, mrubyedge::Error> {
+fn uzumibi_message_ack(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
     let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
@@ -394,7 +397,7 @@ fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>,
 #[cfg(feature = "queue")]
 fn uzumibi_message_retry(
     vm: &mut VM,
-    args: &[Rc<RObject>],
+    _args: &[Rc<RObject>],
 ) -> Result<Rc<RObject>, mrubyedge::Error> {
     let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
@@ -623,7 +626,6 @@ fn do_uzumibi_initialize_message(size: i32) -> Result<*mut u8, mrubyedge::Error>
 /// Returns 0 on success, or a pointer to an error string.
 #[cfg(feature = "queue")]
 fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
-    debug_console_log_internal("uzumibi_start_message called");
     let vm = assume_init_vm()?;
 
     let buf = unsafe {

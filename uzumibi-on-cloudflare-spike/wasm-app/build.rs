@@ -13,4 +13,17 @@ fn main() {
         ctx.compile_to_file(code, &mrb_path)
             .expect("failed to compile mruby script");
     }
+
+    #[cfg(feature = "queue")]
+    {
+        let consumer_mrb_path = Path::new(&out_dir).join("consumer.mrb");
+        let consumer_code = include_str!("../lib/consumer.rb");
+        println!("cargo:rerun-if-changed=../lib/consumer.rb");
+
+        unsafe {
+            let mut ctx = mruby_compiler2_sys::MRubyCompiler2Context::new();
+            ctx.compile_to_file(consumer_code, &consumer_mrb_path)
+                .expect("failed to compile consumer mruby script");
+        }
+    }
 }

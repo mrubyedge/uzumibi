@@ -88,6 +88,12 @@ steps:
       current.res.status == 200 &&
       current.res.rawBody contains 'It works!'
 
+  kill_server:
+    desc: Kill the dev server
+    exec:
+      command: kill -INT $(ps -ef | grep 'wrangler.js de[v]' | awk '{print $2}') || true
+    test: current.exit_code == 0
+
   cleanup_after:
     desc: Clean up test directory
     exec:

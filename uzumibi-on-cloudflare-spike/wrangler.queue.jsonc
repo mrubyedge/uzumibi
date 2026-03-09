@@ -1,30 +1,16 @@
 /**
+ * Queue consumer build config
  * For more details on how to configure Wrangler, refer to:
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
     "$schema": "node_modules/wrangler/config-schema.json",
-    "name": "$$PROJECT_NAME$$",
-    "main": "src/index.js",
+    "name": "uzumibi-on-cloudflare-spike-queue",
+    "main": "src/index.queue.js",
     "compatibility_date": "2025-12-30",
     "observability": {
         "enabled": true
     },
-    /**
-	 * Queues
-	 * Used for Uzumibi::Queue.send
-     * Uncomment the following block to enable queue producer capabilities.
-     * And create queue via command wrangler queue create $$PROJECT_NAME_KEBAB$$-queue
-	 * https://developers.cloudflare.com/queues/
-	 */
-    // "queues": {
-    //     "producers": [
-    //         {
-    //             "binding": "UZUMIBI_QUEUE",
-    //             "queue": "$$PROJECT_NAME_KEBAB$$-queue"
-    //         }
-    //     ]
-    // },
     /**
 	 * Durable Objects
 	 * Used for Uzumibi::KV.get/set
@@ -45,5 +31,25 @@
                 "UzumibiKVObject"
             ]
         }
-    ]
+    ],
+    /**
+	 * Queues
+	 * Used for Uzumibi::Queue.send (producer) and Uzumibi::Consumer (consumer)
+	 * https://developers.cloudflare.com/queues/
+	 */
+    "queues": {
+        "producers": [
+            {
+                "binding": "UZUMIBI_QUEUE",
+                "queue": "uzumibi-queue"
+            }
+        ],
+        "consumers": [
+            {
+                "queue": "uzumibi-queue",
+                "max_batch_size": 10,
+                "max_batch_timeout": 5
+            }
+        ]
+    }
 }
