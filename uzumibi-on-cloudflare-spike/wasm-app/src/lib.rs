@@ -14,9 +14,10 @@ use mrubyedge::{
     },
 };
 
+#[cfg(not(feature = "queue"))]
 static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.mrb"));
 #[cfg(feature = "queue")]
-static CONSUMER_MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/consumer.mrb"));
+static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/consumer.mrb"));
 
 static mut MRUBY_VM: MaybeUninit<VM> = MaybeUninit::uninit();
 static mut MRUBY_VM_LOADED: bool = false;
@@ -528,16 +529,6 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
 
     vm.run()
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to init VM: {:?}", e)))?;
-
-    #[cfg(feature = "queue")]
-    {
-        let mut consumer_rite = rite::load(CONSUMER_MRB).map_err(|e| {
-            mrubyedge::Error::RuntimeError(format!("Failed to load consumer mruby: {:?}", e))
-        })?;
-        vm.eval_rite(&mut consumer_rite).map_err(|e| {
-            mrubyedge::Error::RuntimeError(format!("Failed to run consumer: {:?}", e))
-        })?;
-    }
 
     Ok(vm)
 }
