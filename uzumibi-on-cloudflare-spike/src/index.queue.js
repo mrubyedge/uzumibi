@@ -19,6 +19,10 @@ export class UzumibiKVObject extends DurableObject {
 }
 
 export default {
+	async fetch(request, env, ctx) {
+		return new Response("This endpoint is for queue processing. Please send messages to the queue instead.", { status: 400 });
+	},
+
 	async queue(batch, env, ctx) {
 		const decoder = new TextDecoder();
 		const encoder = new TextEncoder();
@@ -45,8 +49,6 @@ export default {
 				},
 
 				// Fetch.fetch(url, method, body) -> packed Uzumibi::Response
-				// Dummy implementation: queue consumers don't have access to fetch directly,
-				// but enable-external is enabled when queue feature is active.
 				uzumibi_cf_fetch: async (
 					urlPtr, urlSize,
 					methodPtr, methodSize,
