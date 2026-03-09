@@ -17,6 +17,6 @@ uzumibi-art-router = ">= 0.3.1"
 mruby-compiler2-sys = ">= 0.3.0"
 
 [features]
-default = ["enable-external"]
+default = ["enable-external"] # , "queue"]
 enable-external = []
-queue = []
+queue = ["enable-external"]

@@ -366,24 +366,25 @@ fn uzumibi_queue_class_send(
 
 /// Message.ack! -> delegates to JS
 #[cfg(feature = "queue")]
-fn uzumibi_message_ack(
-    vm: &mut VM,
-    args: &[Rc<RObject>],
-) -> Result<Rc<RObject>, mrubyedge::Error> {
+fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, mrubyedge::Error> {
     // self is args[0]
     let self_obj = &args[0];
-    let id_obj = self_obj.get_ivar("@id").ok_or_else(|| {
-        mrubyedge::Error::RuntimeError("Message @id not found".to_string())
-    })?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(mrubyedge::Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
 
     unsafe {
         let result = uzumibi_cf_message_ack(id.as_ptr(), id.len());
         if result != 0 {
-            return Err(mrubyedge::Error::RuntimeError(
-                format!("Failed to ack message: return code {}", result),
-            ));
+            return Err(mrubyedge::Error::RuntimeError(format!(
+                "Failed to ack message: return code {}",
+                result
+            )));
         }
     }
     Ok(RObject::boolean(true).to_refcount_assigned())
@@ -396,31 +397,33 @@ fn uzumibi_message_retry(
     args: &[Rc<RObject>],
 ) -> Result<Rc<RObject>, mrubyedge::Error> {
     let self_obj = &args[0];
-    let id_obj = self_obj.get_ivar("@id").ok_or_else(|| {
-        mrubyedge::Error::RuntimeError("Message @id not found".to_string())
-    })?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(mrubyedge::Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
 
     let delay_seconds: i32 = match vm.get_kwargs() {
-        Some(kwargs) => {
-            match kwargs.get("delay_seconds") {
-                Some(val) => {
-                    let v: i64 = val.as_ref().try_into()?;
-                    v as i32
-                }
-                None => 0,
+        Some(kwargs) => match kwargs.get("delay_seconds") {
+            Some(val) => {
+                let v: i64 = val.as_ref().try_into()?;
+                v as i32
             }
-        }
+            None => 0,
+        },
         None => 0,
     };
 
     unsafe {
         let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), delay_seconds);
         if result != 0 {
-            return Err(mrubyedge::Error::RuntimeError(
-                format!("Failed to retry message: return code {}", result),
-            ));
+            return Err(mrubyedge::Error::RuntimeError(format!(
+                "Failed to retry message: return code {}",
+                result
+            )));
         }
     }
     Ok(RObject::boolean(true).to_refcount_assigned())
@@ -519,10 +522,12 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
 
     #[cfg(feature = "queue")]
     {
-        let mut consumer_rite = rite::load(CONSUMER_MRB)
-            .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load consumer mruby: {:?}", e)))?;
-        vm.eval_rite(&mut consumer_rite)
-            .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to run consumer: {:?}", e)))?;
+        let mut consumer_rite = rite::load(CONSUMER_MRB).map_err(|e| {
+            mrubyedge::Error::RuntimeError(format!("Failed to load consumer mruby: {:?}", e))
+        })?;
+        vm.eval_rite(&mut consumer_rite).map_err(|e| {
+            mrubyedge::Error::RuntimeError(format!("Failed to run consumer: {:?}", e))
+        })?;
     }
 
     Ok(vm)
@@ -622,9 +627,9 @@ fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
     let vm = assume_init_vm()?;
 
     let buf = unsafe {
-        MESSAGE_BUF
-            .as_ref()
-            .ok_or_else(|| mrubyedge::Error::RuntimeError("Message buffer not initialized".to_string()))?
+        MESSAGE_BUF.as_ref().ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Message buffer not initialized".to_string())
+        })?
     };
 
     let mut offset = 0;
@@ -643,7 +648,10 @@ fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
 
     // body (u32 LE size + bytes)
     let body_size = u32::from_le_bytes([
-        buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3],
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
     ]) as usize;
     offset += 4;
     let body = String::from_utf8_lossy(&buf[offset..offset + body_size]).to_string();
@@ -651,7 +659,10 @@ fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
 
     // attempts (u32 LE)
     let attempts = u32::from_le_bytes([
-        buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3],
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
     ]) as i64;
 
     // Create Uzumibi::Message instance
@@ -666,17 +677,21 @@ fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
             ));
         }
     };
-    let message_class = uzumibi_module
-        .get_const_by_name("Message")
-        .ok_or_else(|| {
-            mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
-        })?;
+    let message_class = uzumibi_module.get_const_by_name("Message").ok_or_else(|| {
+        mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
+    })?;
     let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
 
     message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
-    message.set_ivar("@timestamp", RObject::string(timestamp).to_refcount_assigned());
+    message.set_ivar(
+        "@timestamp",
+        RObject::string(timestamp).to_refcount_assigned(),
+    );
     message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
-    message.set_ivar("@attempts", RObject::integer(attempts).to_refcount_assigned());
+    message.set_ivar(
+        "@attempts",
+        RObject::integer(attempts).to_refcount_assigned(),
+    );
 
     // Call $CONSUMER.on_receive(message)
     let consumer = vm
@@ -705,8 +720,6 @@ unsafe extern "C" fn uzumibi_initialize_message(size: i32) -> u64 {
 unsafe extern "C" fn uzumibi_start_message() -> u32 {
     match do_uzumibi_start_message() {
         Ok(()) => 0,
-        Err(e) => {
-            set_error_to_buf(format!("Error in start_message: {}", e)) as u32
-        }
+        Err(e) => set_error_to_buf(format!("Error in start_message: {}", e)) as u32,
     }
 }
