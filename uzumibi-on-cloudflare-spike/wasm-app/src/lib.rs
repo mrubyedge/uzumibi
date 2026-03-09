@@ -9,7 +9,7 @@ use mrubyedge::{
     yamrb::{
         helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
         prelude::hash::{mrb_hash_new, mrb_hash_set_index},
-        value::{RObject, RValue},
+        value::{RObject, RSym, RValue},
         vm::VM,
     },
 };
@@ -367,19 +367,33 @@ fn uzumibi_queue_class_send(
 /// Message.ack! -> delegates to JS
 #[cfg(feature = "queue")]
 fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, mrubyedge::Error> {
-    // self is args[0]
-    let self_obj = &args[0];
+    debug_console_log_internal("[debug] uzumibi_message_ack: called");
+    let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
+        debug_console_log_internal("[debug] uzumibi_message_ack: @id is nil");
         return Err(mrubyedge::Error::RuntimeError(
             "Message object does not have @id".to_string(),
         ));
     }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
+    debug_console_log_internal(&format!("[debug] uzumibi_message_ack: id={}", id));
 
+    #[cfg(feature = "debug-stub")]
+    {
+        debug_console_log_internal("[debug] uzumibi_message_ack: STUB - skipping JS call");
+    }
+    #[cfg(not(feature = "debug-stub"))]
     unsafe {
+        debug_console_log_internal(
+            "[debug] uzumibi_message_ack: calling JS uzumibi_cf_message_ack",
+        );
         let result = uzumibi_cf_message_ack(id.as_ptr(), id.len());
+        debug_console_log_internal(&format!(
+            "[debug] uzumibi_message_ack: JS returned {}",
+            result
+        ));
         if result != 0 {
             return Err(mrubyedge::Error::RuntimeError(format!(
                 "Failed to ack message: return code {}",
@@ -396,15 +410,18 @@ fn uzumibi_message_retry(
     vm: &mut VM,
     args: &[Rc<RObject>],
 ) -> Result<Rc<RObject>, mrubyedge::Error> {
-    let self_obj = &args[0];
+    debug_console_log_internal("[debug] uzumibi_message_retry: called");
+    let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
+        debug_console_log_internal("[debug] uzumibi_message_retry: @id is nil");
         return Err(mrubyedge::Error::RuntimeError(
             "Message object does not have @id".to_string(),
         ));
     }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
+    debug_console_log_internal(&format!("[debug] uzumibi_message_retry: id={}", id));
 
     let delay_seconds: i32 = match vm.get_kwargs() {
         Some(kwargs) => match kwargs.get("delay_seconds") {
@@ -416,9 +433,25 @@ fn uzumibi_message_retry(
         },
         None => 0,
     };
+    debug_console_log_internal(&format!(
+        "[debug] uzumibi_message_retry: delay_seconds={}",
+        delay_seconds
+    ));
 
+    #[cfg(feature = "debug-stub")]
+    {
+        debug_console_log_internal("[debug] uzumibi_message_retry: STUB - skipping JS call");
+    }
+    #[cfg(not(feature = "debug-stub"))]
     unsafe {
+        debug_console_log_internal(
+            "[debug] uzumibi_message_retry: calling JS uzumibi_cf_message_retry",
+        );
         let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), delay_seconds);
+        debug_console_log_internal(&format!(
+            "[debug] uzumibi_message_retry: JS returned {}",
+            result
+        ));
         if result != 0 {
             return Err(mrubyedge::Error::RuntimeError(format!(
                 "Failed to retry message: return code {}",
@@ -503,6 +536,16 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
 
         // Uzumibi::Message with ack! and retry methods
         let message_class = vm.define_class("Message", None, Some(uzumibi_module));
+        let message_class_obj = RObject::class(message_class.clone(), &mut vm);
+        for attr in ["id", "timestamp", "body", "attempts"] {
+            mrb_funcall(
+                &mut vm,
+                Some(message_class_obj.clone()),
+                "attr_accessor",
+                &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+            )
+            .expect("attr_accessor failed");
+        }
         mrb_define_cmethod(
             &mut vm,
             message_class.clone(),

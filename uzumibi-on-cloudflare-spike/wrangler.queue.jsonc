@@ -1,0 +1,55 @@
+/**
+ * Queue consumer build config
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "uzumibi-on-cloudflare-spike-queue",
+    "main": "src/index.queue.js",
+    "compatibility_date": "2025-12-30",
+    "observability": {
+        "enabled": true
+    },
+    /**
+	 * Durable Objects
+	 * Used for Uzumibi::KV.get/set
+	 * https://developers.cloudflare.com/durable-objects/
+	 */
+    // "durable_objects": {
+    //     "bindings": [
+    //         {
+    //             "name": "UZUMIBI_KV_DATA",
+    //             "class_name": "UzumibiKVObject"
+    //         }
+    //     ]
+    // },
+    // "migrations": [
+    //     {
+    //         "tag": "v1",
+    //         "new_sqlite_classes": [
+    //             "UzumibiKVObject"
+    //         ]
+    //     }
+    // ],
+    /**
+	 * Queues
+	 * Used for Uzumibi::Queue.send (producer) and Uzumibi::Consumer (consumer)
+	 * https://developers.cloudflare.com/queues/
+	 */
+    "queues": {
+        "producers": [
+            {
+                "binding": "UZUMIBI_QUEUE",
+                "queue": "uzumibi-queue"
+            }
+        ],
+        "consumers": [
+            {
+                "queue": "uzumibi-queue",
+                "max_batch_size": 10,
+                "max_batch_timeout": 5
+            }
+        ]
+    }
+}
