@@ -367,18 +367,15 @@ fn uzumibi_queue_class_send(
 /// Message.ack! -> delegates to JS
 #[cfg(feature = "queue")]
 fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, mrubyedge::Error> {
-    debug_console_log_internal("[debug] uzumibi_message_ack: called");
     let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
-        debug_console_log_internal("[debug] uzumibi_message_ack: @id is nil");
         return Err(mrubyedge::Error::RuntimeError(
             "Message object does not have @id".to_string(),
         ));
     }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
-    debug_console_log_internal(&format!("[debug] uzumibi_message_ack: id={}", id));
 
     #[cfg(feature = "debug-stub")]
     {
@@ -386,14 +383,7 @@ fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>,
     }
     #[cfg(not(feature = "debug-stub"))]
     unsafe {
-        debug_console_log_internal(
-            "[debug] uzumibi_message_ack: calling JS uzumibi_cf_message_ack",
-        );
         let result = uzumibi_cf_message_ack(id.as_ptr(), id.len());
-        debug_console_log_internal(&format!(
-            "[debug] uzumibi_message_ack: JS returned {}",
-            result
-        ));
         if result != 0 {
             return Err(mrubyedge::Error::RuntimeError(format!(
                 "Failed to ack message: return code {}",
@@ -410,18 +400,15 @@ fn uzumibi_message_retry(
     vm: &mut VM,
     args: &[Rc<RObject>],
 ) -> Result<Rc<RObject>, mrubyedge::Error> {
-    debug_console_log_internal("[debug] uzumibi_message_retry: called");
     let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
-        debug_console_log_internal("[debug] uzumibi_message_retry: @id is nil");
         return Err(mrubyedge::Error::RuntimeError(
             "Message object does not have @id".to_string(),
         ));
     }
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
-    debug_console_log_internal(&format!("[debug] uzumibi_message_retry: id={}", id));
 
     let delay_seconds: i32 = match vm.get_kwargs() {
         Some(kwargs) => match kwargs.get("delay_seconds") {
@@ -433,10 +420,6 @@ fn uzumibi_message_retry(
         },
         None => 0,
     };
-    debug_console_log_internal(&format!(
-        "[debug] uzumibi_message_retry: delay_seconds={}",
-        delay_seconds
-    ));
 
     #[cfg(feature = "debug-stub")]
     {
@@ -444,14 +427,7 @@ fn uzumibi_message_retry(
     }
     #[cfg(not(feature = "debug-stub"))]
     unsafe {
-        debug_console_log_internal(
-            "[debug] uzumibi_message_retry: calling JS uzumibi_cf_message_retry",
-        );
         let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), delay_seconds);
-        debug_console_log_internal(&format!(
-            "[debug] uzumibi_message_retry: JS returned {}",
-            result
-        ));
         if result != 0 {
             return Err(mrubyedge::Error::RuntimeError(format!(
                 "Failed to retry message: return code {}",

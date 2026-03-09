@@ -260,7 +260,8 @@ impl Request {
                     {
                         let body_rstr =
                             RObject::string_from_vec(self.body.clone()).to_refcount_assigned();
-                        if let Ok(json_value) = mrubyedge_serde_json::mrb_json_class_load(vm, &[body_rstr])
+                        if let Ok(json_value) =
+                            mrubyedge_serde_json::mrb_json_class_load(vm, &[body_rstr])
                         {
                             // If json_value is a Hash, set key-value pairs to params
                             if let RValue::Hash(h) = &json_value.value {
