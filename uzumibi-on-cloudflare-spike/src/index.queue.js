@@ -9,7 +9,11 @@ export default {
 		const encoder = new TextEncoder();
 
 		// Current message being processed (set per iteration)
-		let currentMessage = null;
+		const getMessage = (id) => {
+			const message = batch.messages.find((m) => m.id === id);
+			if (!message) throw new Error(`Message not found for id: ${id}`);
+			return message;
+		};
 
 		const importObject = {
 			env: {
@@ -20,13 +24,15 @@ export default {
 					return 0;
 				},
 
-				uzumibi_cf_message_ack: async (_idPtr, _idSize) => {
-					currentMessage.ack();
+				uzumibi_cf_message_ack: async (idPtr, idSize) => {
+					const id = decoder.decode(new Uint8Array(exports.memory.buffer, idPtr, idSize));
+					getMessage(id).ack();
 					return 0;
 				},
 
-				uzumibi_cf_message_retry: async (_idPtr, _idSize, delaySeconds) => {
-					currentMessage.retry({ delaySeconds });
+				uzumibi_cf_message_retry: async (idPtr, idSize, delaySeconds) => {
+					const id = decoder.decode(new Uint8Array(exports.memory.buffer, idPtr, idSize));
+					getMessage(id).retry({ delaySeconds });
 					return 0;
 				},
 			},
@@ -36,8 +42,6 @@ export default {
 		const exports = instance.exports;
 
 		for (const message of batch.messages) {
-			currentMessage = message;
-
 			const idBytes = encoder.encode(message.id);
 			const timestampBytes = encoder.encode(
 				message.timestamp.toISOString(),
