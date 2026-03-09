@@ -35,6 +35,16 @@ unsafe extern "C" {
     unsafe fn debug_console_log(ptr: *const u8, len: usize);
 }
 
+#[cfg(feature = "queue")]
+unsafe extern "C" {
+    unsafe fn uzumibi_cf_message_ack(message_id_ptr: *const u8, message_id_size: usize) -> i32;
+    unsafe fn uzumibi_cf_message_retry(
+        message_id_ptr: *const u8,
+        message_id_size: usize,
+        delay_seconds: i32,
+    ) -> i32;
+}
+
 #[cfg(feature = "enable-external")]
 unsafe extern "C" {
     unsafe fn uzumibi_cf_fetch(
@@ -350,6 +360,81 @@ fn uzumibi_queue_class_send(
     Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
+// ---- Queue consumer support (only when queue feature is active) ----
+
+/// Message.ack! -> delegates to JS
+#[cfg(feature = "queue")]
+fn uzumibi_message_ack(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    // self is args[0]
+    let self_obj = &args[0];
+    let id_obj = self_obj.get_ivar("@id").ok_or_else(|| {
+        mrubyedge::Error::RuntimeError("Message @id not found".to_string())
+    })?;
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    unsafe {
+        let result = uzumibi_cf_message_ack(id.as_ptr(), id.len());
+        if result != 0 {
+            return Err(mrubyedge::Error::RuntimeError(
+                format!("Failed to ack message: return code {}", result),
+            ));
+        }
+    }
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// Message.retry(delay_seconds: N) -> delegates to JS
+#[cfg(feature = "queue")]
+fn uzumibi_message_retry(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let self_obj = &args[0];
+    let id_obj = self_obj.get_ivar("@id").ok_or_else(|| {
+        mrubyedge::Error::RuntimeError("Message @id not found".to_string())
+    })?;
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    let delay_seconds: i32 = match vm.get_kwargs() {
+        Some(kwargs) => {
+            match kwargs.get("delay_seconds") {
+                Some(val) => {
+                    let v: i64 = val.as_ref().try_into()?;
+                    v as i32
+                }
+                None => 0,
+            }
+        }
+        None => 0,
+    };
+
+    unsafe {
+        let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), delay_seconds);
+        if result != 0 {
+            return Err(mrubyedge::Error::RuntimeError(
+                format!("Failed to retry message: return code {}", result),
+            ));
+        }
+    }
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// Consumer.on_receive(message) - abstract method, must be overridden
+#[cfg(feature = "queue")]
+fn uzumibi_consumer_on_receive(
+    _vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    Err(mrubyedge::Error::RuntimeError(
+        "on_receive must be implemented by subclass of Uzumibi::Consumer".to_string(),
+    ))
+}
+
 // ---- VM initialization ----
 
 fn init_vm() -> Result<VM, mrubyedge::Error> {
@@ -395,6 +480,35 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
             queue_class,
             "send",
             Box::new(uzumibi_queue_class_send),
+        );
+    }
+
+    #[cfg(feature = "queue")]
+    {
+        let uzumibi_module = vm.get_module_by_name("Uzumibi");
+
+        // Uzumibi::Consumer (base class for user-defined consumers)
+        let consumer_class = vm.define_class("Consumer", None, Some(uzumibi_module.clone()));
+        mrb_define_cmethod(
+            &mut vm,
+            consumer_class,
+            "on_receive",
+            Box::new(uzumibi_consumer_on_receive),
+        );
+
+        // Uzumibi::Message with ack! and retry methods
+        let message_class = vm.define_class("Message", None, Some(uzumibi_module));
+        mrb_define_cmethod(
+            &mut vm,
+            message_class.clone(),
+            "ack!",
+            Box::new(uzumibi_message_ack),
+        );
+        mrb_define_cmethod(
+            &mut vm,
+            message_class,
+            "retry",
+            Box::new(uzumibi_message_retry),
         );
     }
 
@@ -464,6 +578,125 @@ unsafe extern "C" fn uzumibi_start_request() -> u64 {
         Err(e) => {
             let err_buf = set_error_to_buf(format!("Error in start_request: {}", e));
             ((err_buf as u32) as u64) << 32
+        }
+    }
+}
+
+// ---- Queue message handling (only when queue feature is active) ----
+
+/// Allocate a buffer for the message data.
+/// Returns a pointer to the buffer (lower 32 bits) or error (upper 32 bits).
+#[cfg(feature = "queue")]
+static mut MESSAGE_BUF: Option<Vec<u8>> = None;
+
+#[cfg(feature = "queue")]
+fn do_uzumibi_initialize_message(size: i32) -> Result<*mut u8, mrubyedge::Error> {
+    let _ = assume_init_vm()?;
+    unsafe {
+        MESSAGE_BUF = Some(vec![0u8; size as usize]);
+        Ok(MESSAGE_BUF.as_mut().unwrap().as_mut_ptr())
+    }
+}
+
+/// Unpack message from buffer and call $CONSUMER.on_receive(message).
+/// Message binary format:
+///   u16 LE id_size, id bytes,
+///   u16 LE timestamp_size, timestamp bytes,
+///   u32 LE body_size, body bytes,
+///   u32 LE attempts
+///
+/// Returns 0 on success, or a pointer to an error string.
+#[cfg(feature = "queue")]
+fn do_uzumibi_start_message() -> Result<(), mrubyedge::Error> {
+    debug_console_log_internal("uzumibi_start_message called");
+    let vm = assume_init_vm()?;
+
+    let buf = unsafe {
+        MESSAGE_BUF
+            .as_ref()
+            .ok_or_else(|| mrubyedge::Error::RuntimeError("Message buffer not initialized".to_string()))?
+    };
+
+    let mut offset = 0;
+
+    // id (u16 LE size + bytes)
+    let id_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+    offset += 2;
+    let id = String::from_utf8_lossy(&buf[offset..offset + id_size]).to_string();
+    offset += id_size;
+
+    // timestamp (u16 LE size + bytes)
+    let ts_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+    offset += 2;
+    let timestamp = String::from_utf8_lossy(&buf[offset..offset + ts_size]).to_string();
+    offset += ts_size;
+
+    // body (u32 LE size + bytes)
+    let body_size = u32::from_le_bytes([
+        buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3],
+    ]) as usize;
+    offset += 4;
+    let body = String::from_utf8_lossy(&buf[offset..offset + body_size]).to_string();
+    offset += body_size;
+
+    // attempts (u32 LE)
+    let attempts = u32::from_le_bytes([
+        buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3],
+    ]) as i64;
+
+    // Create Uzumibi::Message instance
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => {
+            return Err(mrubyedge::Error::RuntimeError(
+                "Uzumibi must be a module".to_string(),
+            ));
+        }
+    };
+    let message_class = uzumibi_module
+        .get_const_by_name("Message")
+        .ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
+        })?;
+    let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
+
+    message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
+    message.set_ivar("@timestamp", RObject::string(timestamp).to_refcount_assigned());
+    message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
+    message.set_ivar("@attempts", RObject::integer(attempts).to_refcount_assigned());
+
+    // Call $CONSUMER.on_receive(message)
+    let consumer = vm
+        .globals
+        .get("$CONSUMER")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("$CONSUMER is not defined".to_string()))?;
+    mrb_funcall(vm, consumer.clone().into(), "on_receive", &[message])?;
+
+    Ok(())
+}
+
+#[cfg(feature = "queue")]
+#[unsafe(export_name = "uzumibi_initialize_message")]
+unsafe extern "C" fn uzumibi_initialize_message(size: i32) -> u64 {
+    match do_uzumibi_initialize_message(size) {
+        Ok(ptr) => (ptr as u32) as u64,
+        Err(e) => {
+            let err_buf = set_error_to_buf(format!("Error in initialize_message: {}", e));
+            ((err_buf as u32) as u64) << 32
+        }
+    }
+}
+
+#[cfg(feature = "queue")]
+#[unsafe(export_name = "uzumibi_start_message")]
+unsafe extern "C" fn uzumibi_start_message() -> u32 {
+    match do_uzumibi_start_message() {
+        Ok(()) => 0,
+        Err(e) => {
+            set_error_to_buf(format!("Error in start_message: {}", e)) as u32
         }
     }
 }

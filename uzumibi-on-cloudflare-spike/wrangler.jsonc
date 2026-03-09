@@ -33,7 +33,7 @@
 	]
 	/**
 	 * Queues
-	 * Used for Uzumibi::Queue.send
+	 * Used for Uzumibi::Queue.send (producer) and Uzumibi::Consumer (consumer)
 	 * https://developers.cloudflare.com/queues/
 	 */
 	// "queues": {
@@ -41,6 +41,13 @@
 	// 		{
 	// 			"binding": "MY_QUEUE",
 	// 			"queue": "my-queue-name"
+	// 		}
+	// 	],
+	// 	"consumers": [
+	// 		{
+	// 			"queue": "my-queue-name",
+	// 			"max_batch_size": 10,
+	// 			"max_batch_timeout": 5
 	// 		}
 	// 	]
 	// }
