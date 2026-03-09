@@ -380,12 +380,13 @@ fn print_project_next_steps(template: &str, project_name: &str, features: &[Stri
             println!("     \x1b[36mpnpm run deploy\x1b[0m");
             if has_queue {
                 println!();
-                println!("  \x1b[33mNote:\x1b[0m This project uses queue feature (Cloudflare Queues consumer).");
-                println!("  Edit \x1b[36mlib/consumer.rb\x1b[0m to implement your queue consumer logic.");
-                println!("  The following Uzumibi APIs are available in Ruby:");
                 println!(
-                    "    • \x1b[36mUzumibi::Consumer\x1b[0m → Base class for queue consumers"
+                    "  \x1b[33mNote:\x1b[0m This project uses queue feature (Cloudflare Queues consumer)."
                 );
+                println!(
+                    "  Edit \x1b[36mlib/consumer.rb\x1b[0m to implement your queue consumer logic."
+                );
+                println!("  The following Uzumibi APIs are available in Ruby:");
                 println!(
                     "    • \x1b[36mUzumibi::Message#ack!\x1b[0m / \x1b[36m#retry(delay_seconds: N)\x1b[0m → Message control"
                 );
