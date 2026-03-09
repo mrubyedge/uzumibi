@@ -30,7 +30,7 @@
 				"UzumibiKVObject"
 			]
 		}
-	]
+	],
 	/**
 	 * Queues
 	 * Used for Uzumibi::Queue.send (producer) and Uzumibi::Consumer (consumer)
@@ -51,4 +51,19 @@
 	// 		}
 	// 	]
 	// }
+	"queues": {
+		"producers": [
+			{
+				"binding": "UZUMIBI_QUEUE",
+				"queue": "uzumibi-queue"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "my-queue-name",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5
+			}
+		]
+	}
 }

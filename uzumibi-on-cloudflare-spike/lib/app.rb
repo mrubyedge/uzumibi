@@ -37,6 +37,14 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/queue/send" do |req, res|
+    Uzumibi::Queue.send("UZUMIBI_QUEUE", "Hello from Uzumibi Queue!")
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Sent message to queue\n"
+    res
+  end
+
   get "/healthz" do |req, res|
     res.status_code = 200
     res.headers = {
