@@ -377,11 +377,6 @@ fn uzumibi_message_ack(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>,
     let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
     let id: String = id.as_ref().try_into()?;
 
-    #[cfg(feature = "debug-stub")]
-    {
-        debug_console_log_internal("[debug] uzumibi_message_ack: STUB - skipping JS call");
-    }
-    #[cfg(not(feature = "debug-stub"))]
     unsafe {
         let result = uzumibi_cf_message_ack(id.as_ptr(), id.len());
         if result != 0 {
@@ -421,11 +416,6 @@ fn uzumibi_message_retry(
         None => 0,
     };
 
-    #[cfg(feature = "debug-stub")]
-    {
-        debug_console_log_internal("[debug] uzumibi_message_retry: STUB - skipping JS call");
-    }
-    #[cfg(not(feature = "debug-stub"))]
     unsafe {
         let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), delay_seconds);
         if result != 0 {
