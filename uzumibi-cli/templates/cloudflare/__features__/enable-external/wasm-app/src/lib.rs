@@ -350,6 +350,18 @@ fn uzumibi_queue_class_send(
     Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
+// ---- Assets pass-through ----
+
+fn uzumibi_fetch_assets(
+    _vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    Err(mrubyedge::Error::TaggedError(
+        "UzumibiPassAssets",
+        "pass assets to platform".to_string(),
+    ))
+}
+
 // ---- VM initialization ----
 
 fn init_vm() -> Result<VM, mrubyedge::Error> {
@@ -360,9 +372,15 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
     let object = vm.object_class.clone();
     mrb_define_cmethod(
         &mut vm,
-        object,
+        object.clone(),
         "debug_console",
         Box::new(uzumibi_kernel_debug_console_log),
+    );
+    mrb_define_cmethod(
+        &mut vm,
+        object,
+        "fetch_assets",
+        Box::new(uzumibi_fetch_assets),
     );
 
     #[cfg(feature = "enable-external")]
@@ -457,10 +475,13 @@ unsafe extern "C" fn uzumibi_initialize_request(size: i32) -> u64 {
     }
 }
 
+const PASS_ASSETS: u64 = 0xFEFFFFFF;
+
 #[unsafe(export_name = "uzumibi_start_request")]
 unsafe extern "C" fn uzumibi_start_request() -> u64 {
     match do_uzumibi_start_request() {
         Ok(ptr) => (ptr as u32) as u64,
+        Err(mrubyedge::Error::TaggedError("UzumibiPassAssets", _)) => PASS_ASSETS << 32,
         Err(e) => {
             let err_buf = set_error_to_buf(format!("Error in start_request: {}", e));
             ((err_buf as u32) as u64) << 32

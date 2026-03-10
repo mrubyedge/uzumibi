@@ -118,11 +118,21 @@ export default {
 
 		const resResult = exports.uzumibi_start_request();
 		const resOffset = Number(resResult & 0xFFFFFFFFn);
-		if (resOffset === 0) {
-			const errOffset = Number((resResult >> 32n) & 0xFFFFFFFFn);
-			const decoder = new TextDecoder();
+		const upperBits = Number((resResult >> 32n) & 0xFFFFFFFFn);
+
+		if (upperBits !== 0) {
+			const upperTag = (upperBits >> 16) & 0xFFFF;
+			if (upperTag === 0xFEFF) {
+				// Special route
+				if (upperBits === 0xFEFFFFFF) {
+					// Pass through to assets
+					return env.ASSETS.fetch(request);
+				}
+				throw new Error(`Unknown routing bits: 0x${upperBits.toString(16)}`);
+			}
+			// Error case
+			const buffer = new Uint8Array(exports.memory.buffer, upperBits);
 			let errStr = "";
-			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
 			for (let i = 0; buffer[i] !== 0; i++) {
 				errStr += String.fromCharCode(buffer[i]);
 			}

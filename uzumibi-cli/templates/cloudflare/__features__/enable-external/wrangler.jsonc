@@ -11,6 +11,15 @@
         "enabled": true
     },
     /**
+     * Static Assets
+     * Served via env.ASSETS.fetch() when fetch_assets is called in a route
+     * https://developers.cloudflare.com/workers/static-assets/
+     */
+    "assets": {
+        "directory": "./public",
+        "binding": "ASSETS"
+    },
+    /**
 	 * Queues
 	 * Used for Uzumibi::Queue.send
      * Uncomment the following block to enable queue producer capabilities.
