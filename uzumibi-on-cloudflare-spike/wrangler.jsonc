@@ -11,6 +11,15 @@
 		"enabled": true
 	},
 	/**
+	 * Assets
+	 * Static files served via env.ASSETS.fetch()
+	 * https://developers.cloudflare.com/workers/static-assets/
+	 */
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS"
+	},
+	/**
 	 * Durable Objects
 	 * Used for Uzumibi::KV.get/set
 	 * https://developers.cloudflare.com/durable-objects/

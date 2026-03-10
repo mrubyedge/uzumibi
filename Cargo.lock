@@ -1081,9 +1081,9 @@ dependencies = [
 
 [[package]]
 name = "mrubyedge"
-version = "1.1.9"
+version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8196b89b47357c9d189abfdcb6024b0842817d089742cb127f5a223c11592a2b"
+checksum = "7d5fb7c3a4987ec0c40b6363c463393f7550859e1963c6a4d4716d6169320160"
 dependencies = [
  "plain",
  "rand_core 0.10.0",

@@ -45,6 +45,10 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/assets/*" do |req, res|
+    fetch_assets
+  end
+
   get "/healthz" do |req, res|
     res.status_code = 200
     res.headers = {
