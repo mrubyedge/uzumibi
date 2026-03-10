@@ -1915,7 +1915,7 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-cli"
-version = "0.6.0-rc2"
+version = "0.6.0"
 dependencies = [
  "clap",
  "dialoguer",
