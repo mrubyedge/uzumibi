@@ -369,6 +369,10 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
+
+    let runtime_error = vm.get_class_by_name("RuntimeError");
+    vm.define_class("UzumibiPassAssets", Some(runtime_error), None);
+
     let object = vm.object_class.clone();
     mrb_define_cmethod(
         &mut vm,
