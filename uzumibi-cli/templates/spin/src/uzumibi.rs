@@ -1,5 +1,6 @@
 #![allow(static_mut_refs)]
 extern crate mrubyedge;
+extern crate mrubyedge_serde_json;
 extern crate spin_sdk;
 extern crate uzumibi_gem;
 
@@ -40,6 +41,7 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
+    mrubyedge_serde_json::init_json(&mut vm);
     let object = vm.object_class.clone();
     mrb_define_cmethod(
         &mut vm,
