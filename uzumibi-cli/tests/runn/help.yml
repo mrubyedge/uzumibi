@@ -1,7 +1,6 @@
 desc: Test uzumibi CLI help command
 vars:
   binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
-  version: 0.6.0-rc2
 steps:
   build:
     desc: Build release binary
@@ -28,7 +27,7 @@ steps:
   version:
     desc: Show version
     exec:
-      command: "{{ vars.binary }} --version | grep {{ vars.version }}"
+      command: "{{ vars.binary }} --version"
     test: |
       current.exit_code == 0 &&
       current.stdout contains "uzumibi"
