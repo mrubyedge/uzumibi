@@ -57,6 +57,8 @@ unsafe extern "C" {
         method_size: usize,
         body_ptr: *const u8,
         body_size: usize,
+        headers_ptr: *const u8,
+        headers_size: usize,
         result_ptr: *mut u8,
         result_max_size: usize,
     ) -> i32;
@@ -95,7 +97,7 @@ fn debug_console_log_internal(message: &str) {
 ///   u32 LE body_size
 ///   body bytes
 #[cfg(feature = "enable-external")]
-fn cf_fetch(url: &str, method: &str, body: &str) -> Result<Vec<u8>, String> {
+fn cf_fetch(url: &str, method: &str, body: &str, headers: &[u8]) -> Result<Vec<u8>, String> {
     const BUFFER_SIZE: usize = 65536;
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
@@ -107,6 +109,8 @@ fn cf_fetch(url: &str, method: &str, body: &str) -> Result<Vec<u8>, String> {
             method.len(),
             body.as_ptr(),
             body.len(),
+            headers.as_ptr(),
+            headers.len(),
             buffer.as_mut_ptr(),
             BUFFER_SIZE,
         );
@@ -194,7 +198,7 @@ fn uzumibi_kernel_debug_console_log(
     Ok(RObject::nil().to_refcount_assigned())
 }
 
-/// Fetch.fetch(url, method="GET", body="") -> Uzumibi::Response
+/// Fetch.fetch(url, method="GET", body="", headers={}) -> Uzumibi::Response
 #[cfg(feature = "enable-external")]
 fn uzumibi_fetch_class_fetch(
     vm: &mut VM,
@@ -220,11 +224,53 @@ fn uzumibi_fetch_class_fetch(
         String::new()
     };
 
-    let packed = cf_fetch(&url, &method, &body)
+    // Pack request headers from Hash (4th argument)
+    let packed_headers = if args.len() > 3 {
+        pack_headers_from_hash(vm, &args[3])?
+    } else {
+        vec![0u8; 2] // u16 LE count = 0
+    };
+
+    let packed = cf_fetch(&url, &method, &body, &packed_headers)
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Fetch failed: {}", e)))?;
 
     // Unpack the packed response into Uzumibi::Response
     unpack_response_to_robject(vm, &packed)
+}
+
+/// Pack a mruby Hash into binary format for request headers:
+///   u16 LE headers_count
+///   (u16 LE key_size, key bytes, u16 LE value_size, value bytes) * count
+#[cfg(feature = "enable-external")]
+fn pack_headers_from_hash(
+    vm: &mut VM,
+    hash_obj: &Rc<RObject>,
+) -> Result<Vec<u8>, mrubyedge::Error> {
+    match &hash_obj.as_ref().value {
+        RValue::Hash(h) => {
+            let hash = h.borrow();
+            let mut buf = Vec::new();
+            let count = hash.len() as u16;
+            buf.extend_from_slice(&count.to_le_bytes());
+            for (_, (key_obj, value_obj)) in hash.iter() {
+                let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+                let key: String = key.as_ref().try_into()?;
+                let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
+                let value: String = value.as_ref().try_into()?;
+                buf.extend_from_slice(&(key.len() as u16).to_le_bytes());
+                buf.extend_from_slice(key.as_bytes());
+                buf.extend_from_slice(&(value.len() as u16).to_le_bytes());
+                buf.extend_from_slice(value.as_bytes());
+            }
+            Ok(buf)
+        }
+        RValue::Nil => {
+            Ok(vec![0u8; 2]) // u16 LE count = 0
+        }
+        _ => Err(mrubyedge::Error::RuntimeError(
+            "headers argument must be a Hash".to_string(),
+        )),
+    }
 }
 
 /// Unpack packed binary response into Uzumibi::Response mruby object
