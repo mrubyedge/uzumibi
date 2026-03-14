@@ -1,5 +1,6 @@
 #![allow(static_mut_refs)]
 extern crate mrubyedge;
+extern crate mrubyedge_serde_json;
 extern crate uzumibi_gem;
 
 use std::{mem::MaybeUninit, rc::Rc};
@@ -415,6 +416,7 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
+    mrubyedge_serde_json::init_json(&mut vm);
 
     let runtime_error = vm.get_class_by_name("RuntimeError");
     vm.define_class("UzumibiPassAssets", Some(runtime_error), None);
