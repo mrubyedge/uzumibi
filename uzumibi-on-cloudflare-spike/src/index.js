@@ -44,12 +44,13 @@ export default {
 					return 0;
 				},
 
-				// Fetch.fetch(url, method, body) -> packed Uzumibi::Response
+				// Fetch.fetch(url, method, body, headers) -> packed Uzumibi::Response
 				// Format: u16 status | u16 headers_count | (u16 key_size, key, u16 value_size, value)... | u32 body_size | body
 				uzumibi_cf_fetch: async (
 					urlPtr, urlSize,
 					methodPtr, methodSize,
 					bodyPtr, bodySize,
+					headersPtr, headersSize,
 					resultPtr, resultMaxSize
 				) => {
 					const memory = exports.memory;
@@ -62,6 +63,28 @@ export default {
 					const fetchOptions = { method };
 					if (body && method !== "GET" && method !== "HEAD") {
 						fetchOptions.body = body;
+					}
+
+					// Unpack request headers: u16 LE count, then (u16 LE key_size, key, u16 LE value_size, value) * count
+					if (headersSize >= 2) {
+						const hView = new DataView(memory.buffer, headersPtr, headersSize);
+						const hCount = hView.getUint16(0, true);
+						if (hCount > 0) {
+							const reqHeaders = {};
+							let hPos = 2;
+							for (let i = 0; i < hCount; i++) {
+								const kLen = hView.getUint16(hPos, true);
+								hPos += 2;
+								const k = decoder.decode(new Uint8Array(memory.buffer, headersPtr + hPos, kLen));
+								hPos += kLen;
+								const vLen = hView.getUint16(hPos, true);
+								hPos += 2;
+								const v = decoder.decode(new Uint8Array(memory.buffer, headersPtr + hPos, vLen));
+								hPos += vLen;
+								reqHeaders[k] = v;
+							}
+							fetchOptions.headers = reqHeaders;
+						}
 					}
 
 					const response = await fetch(url, fetchOptions);
