@@ -9,6 +9,7 @@ Uzumibi uses a specialized mruby implementation [mruby/edge](https://github.com/
 
 ## 👉 Documentation
 
+- [Beginning Uzumibi](https://mrubyedge.github.io/beginning-uzumibi/) - An online book to get you up and running with Uzumibi.
 - [On GitHub Pages](https://mrubyedge.github.io/uzumibi/) - The official Uzumibi documentation, covering installation, usage, supported platforms, and more.
 
 ### tl;dr
