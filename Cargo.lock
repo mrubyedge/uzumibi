@@ -1922,6 +1922,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-cloudflare-ext"
+version = "0.1.0"
+
+[[package]]
 name = "uzumibi-gem"
 version = "0.5.0"
 dependencies = [

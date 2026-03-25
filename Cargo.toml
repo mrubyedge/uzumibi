@@ -1,11 +1,15 @@
 [workspace]
-members = ["uzumibi-art-router",
+members = [
+    "uzumibi-art-router",
     "uzumibi-cli",
+    "uzumibi-cloudflare-ext",
     "uzumibi-gem",
     "uzumibi-on-cloudflare-spike/wasm-app",
     "uzumibi-on-cloudrun-spike",
-    "uzumibi-on-fastly-spike", "uzumibi-on-serviceworker-spike",
-    "uzumibi-on-spin-spike", "uzumibi-on-webworker-spike",
+    "uzumibi-on-fastly-spike",
+    "uzumibi-on-serviceworker-spike",
+    "uzumibi-on-spin-spike",
+    "uzumibi-on-webworker-spike",
     #    "uzumibi-on-wasmcloud-spike",
 ]
 resolver = "3"
