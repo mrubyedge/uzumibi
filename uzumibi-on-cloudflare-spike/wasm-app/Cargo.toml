@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mrubyedge = { version = ">= 1.1.10", features = [
     "no-wasi",
+    "mruby-random",
 ], default-features = false }
 uzumibi-gem = ">= 0.5.0"
 uzumibi-art-router = ">= 0.3.1"
