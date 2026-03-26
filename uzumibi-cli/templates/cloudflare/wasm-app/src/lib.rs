@@ -1,14 +1,14 @@
 #![allow(static_mut_refs)]
 extern crate mrubyedge;
-extern crate mrubyedge_serde_json;
+extern crate uzumibi_cloudflare_ext;
 extern crate uzumibi_gem;
 
-use std::{mem::MaybeUninit, rc::Rc};
+use std::mem::MaybeUninit;
 
 use mrubyedge::{
     rite::rite,
     yamrb::{
-        helpers::{mrb_define_cmethod, mrb_funcall},
+        helpers::mrb_funcall,
         value::{RObject, RValue},
         vm::VM,
     },
@@ -31,66 +31,15 @@ fn set_error_to_buf(message: impl AsRef<str>) -> *const u8 {
     }
 }
 
-unsafe extern "C" {
-    unsafe fn debug_console_log(ptr: *const u8, len: usize);
-}
-
-fn debug_console_log_internal(message: &str) {
-    unsafe {
-        debug_console_log(message.as_ptr(), message.len());
-    }
-}
-
-fn uzumibi_kernel_debug_console_log(
-    vm: &mut VM,
-    args: &[Rc<RObject>],
-) -> Result<Rc<RObject>, mrubyedge::Error> {
-    let msg_obj = &args[0];
-    let msg = mrb_funcall(vm, msg_obj.clone().into(), "to_s", &[])?;
-    let msg: String = msg.as_ref().try_into()?;
-    unsafe {
-        debug_console_log(msg.as_ptr(), msg.len());
-    }
-    Ok(RObject::nil().to_refcount_assigned())
-}
-
-// ---- Assets pass-through ----
-
-fn uzumibi_fetch_assets(
-    _vm: &mut VM,
-    _args: &[Rc<RObject>],
-) -> Result<Rc<RObject>, mrubyedge::Error> {
-    Err(mrubyedge::Error::TaggedError(
-        "UzumibiPassAssets",
-        "pass assets to platform".to_string(),
-    ))
-}
-
 // ---- VM initialization ----
 
 fn init_vm() -> Result<VM, mrubyedge::Error> {
     let mut rite = rite::load(MRB)
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
-    uzumibi_gem::init::init_uzumibi(&mut vm);
     mrubyedge_serde_json::init_json(&mut vm);
-
-    let runtime_error = vm.get_class_by_name("RuntimeError");
-    vm.define_class("UzumibiPassAssets", Some(runtime_error), None);
-
-    let object = vm.object_class.clone();
-    mrb_define_cmethod(
-        &mut vm,
-        object.clone(),
-        "debug_console",
-        Box::new(uzumibi_kernel_debug_console_log),
-    );
-    mrb_define_cmethod(
-        &mut vm,
-        object,
-        "fetch_assets",
-        Box::new(uzumibi_fetch_assets),
-    );
+    uzumibi_gem::init::init_uzumibi(&mut vm);
+    uzumibi_cloudflare_ext::init_cloudflare_ext(&mut vm);
 
     vm.run()
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to init VM: {:?}", e)))?;
@@ -120,7 +69,7 @@ fn do_uzumibi_initialize_request(size: i32) -> Result<*mut u8, mrubyedge::Error>
 }
 
 fn do_uzumibi_start_request() -> Result<*mut u8, mrubyedge::Error> {
-    debug_console_log_internal("uzumibi_start_request called");
+    uzumibi_cloudflare_ext::debug_console_log_internal("uzumibi_start_request called");
     let vm = assume_init_vm()?;
     let app = vm
         .globals
@@ -151,13 +100,13 @@ unsafe extern "C" fn uzumibi_initialize_request(size: i32) -> u64 {
     }
 }
 
-const PASS_ASSETS: u64 = 0xFEFFFFFF;
-
 #[unsafe(export_name = "uzumibi_start_request")]
 unsafe extern "C" fn uzumibi_start_request() -> u64 {
     match do_uzumibi_start_request() {
         Ok(ptr) => (ptr as u32) as u64,
-        Err(mrubyedge::Error::TaggedError("UzumibiPassAssets", _)) => PASS_ASSETS << 32,
+        Err(mrubyedge::Error::TaggedError("UzumibiPassAssets", _)) => {
+            uzumibi_cloudflare_ext::PASS_ASSETS << 32
+        }
         Err(e) => {
             let err_buf = set_error_to_buf(format!("Error in start_request: {}", e));
             ((err_buf as u32) as u64) << 32
