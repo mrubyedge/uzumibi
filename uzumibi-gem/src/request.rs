@@ -44,6 +44,7 @@ const REQUEST_HEADERS_KEY: &str = "headers";
 const REQUEST_PARAMS_KEY: &str = "params";
 const REQUEST_BODY_KEY: &str = "body";
 const REQUEST_RAW_BODY_KEY: &str = "raw_body";
+const REQUEST_COOKIE_KEY: &str = "cookie";
 
 const REQUEST_METHOD_IVAR_KEY: &str = "@method";
 const REQUEST_PATH_IVAR_KEY: &str = "@path";
@@ -51,6 +52,7 @@ const REQUEST_HEADERS_IVAR_KEY: &str = "@headers";
 const REQUEST_PARAMS_IVAR_KEY: &str = "@params";
 const REQUEST_BODY_IVAR_KEY: &str = "@body";
 const REQUEST_RAW_BODY_IVAR_KEY: &str = "@raw_body";
+const REQUEST_COOKIE_IVAR_KEY: &str = "@cookie";
 
 pub(crate) fn init_uzumibi_request(vm: &mut VM) {
     let uzumibi = vm
@@ -103,6 +105,13 @@ pub(crate) fn init_uzumibi_request(vm: &mut VM) {
         Some(request_class.clone()),
         "attr_accessor",
         &[as_sym(REQUEST_RAW_BODY_KEY)],
+    )
+    .expect("attr_accessor failed");
+    mrb_funcall(
+        vm,
+        Some(request_class.clone()),
+        "attr_accessor",
+        &[as_sym(REQUEST_COOKIE_KEY)],
     )
     .expect("attr_accessor failed");
 }
@@ -198,8 +207,22 @@ impl Request {
             RObject::string(self.path).to_refcount_assigned(),
         );
         let headers_hash = mrb_hash_new(vm, &[]).expect("Failed to create headers hash");
+        let cookie_hash = mrb_hash_new(vm, &[]).expect("Failed to create cookie hash");
         let mut content_type: &'static str = "";
         for (key, value) in self.headers {
+            if key.to_lowercase() == "cookie" {
+                for cookie_pair in value.split(';') {
+                    let cookie_pair = cookie_pair.trim();
+                    if let Some((ckey, cval)) = cookie_pair.split_once('=') {
+                        mrb_hash_set_index(
+                            cookie_hash.clone(),
+                            RObject::string(ckey.trim().to_string()).to_refcount_assigned(),
+                            RObject::string(cval.trim().to_string()).to_refcount_assigned(),
+                        )
+                        .expect("Failed to set cookie");
+                    }
+                }
+            }
             if key.to_lowercase() == "content-type" {
                 if value.to_lowercase() == "application/x-www-form-urlencoded" {
                     content_type = "application/x-www-form-urlencoded";
@@ -216,6 +239,7 @@ impl Request {
             .expect("Failed to set header");
         }
         request_obj.set_ivar(REQUEST_HEADERS_IVAR_KEY, headers_hash);
+        request_obj.set_ivar(REQUEST_COOKIE_IVAR_KEY, cookie_hash);
         let params_hash = mrb_hash_new(vm, &[]).expect("Failed to create params hash");
 
         // Merge route params

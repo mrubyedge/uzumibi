@@ -1926,17 +1926,7 @@ name = "uzumibi-cloudflare-ext"
 version = "0.1.0"
 dependencies = [
  "mrubyedge",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "uzumibi-gem"
-version = "0.5.0"
-dependencies = [
- "mruby-compiler2-sys",
- "mrubyedge",
- "mrubyedge-serde-json",
- "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.6.0",
 ]
 
 [[package]]
@@ -1951,6 +1941,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-gem"
+version = "0.6.0"
+dependencies = [
+ "mruby-compiler2-sys",
+ "mrubyedge",
+ "mrubyedge-serde-json",
+ "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [
@@ -1958,7 +1958,7 @@ dependencies = [
  "mrubyedge",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "uzumibi-cloudflare-ext",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.6.0",
 ]
 
 [[package]]
@@ -1971,7 +1971,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "tokio",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
@@ -1984,7 +1984,7 @@ dependencies = [
  "log-fastly",
  "mruby-compiler2-sys",
  "mrubyedge",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
@@ -1994,7 +1994,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "mrubyedge-serde-json",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
@@ -2007,7 +2007,7 @@ dependencies = [
  "mrubyedge",
  "spin-sdk",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
@@ -2017,7 +2017,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "mrubyedge-serde-json",
- "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-gem 0.5.0",
 ]
 
 [[package]]
