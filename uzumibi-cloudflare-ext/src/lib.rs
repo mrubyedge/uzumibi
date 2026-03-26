@@ -1,3 +1,4 @@
+#![allow(static_mut_refs)]
 extern crate mrubyedge;
 extern crate uzumibi_gem;
 
@@ -471,6 +472,138 @@ fn uzumibi_consumer_on_receive(
     ))
 }
 
+// ---- Cloudflare Access ----
+
+#[cfg(feature = "enable-external")]
+static mut ACCESS_TEAM: Option<String> = None;
+
+/// Extract body string from packed response buffer
+#[cfg(feature = "enable-external")]
+fn unpack_response_body(buf: &[u8]) -> Result<String, mrubyedge::Error> {
+    let mut offset = 0;
+    // Skip status code (u16)
+    offset += 2;
+    // Headers count (u16)
+    let headers_count = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+    offset += 2;
+    // Skip headers
+    for _ in 0..headers_count {
+        let key_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2 + key_size;
+        let value_size = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as usize;
+        offset += 2 + value_size;
+    }
+    // Body size (u32)
+    let body_size = u32::from_le_bytes([
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
+    ]) as usize;
+    offset += 4;
+    // Body
+    Ok(String::from_utf8_lossy(&buf[offset..offset + body_size]).to_string())
+}
+
+/// Access.team=(name)
+#[cfg(feature = "enable-external")]
+fn uzumibi_access_set_team(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let team = mrb_funcall(vm, args[0].clone().into(), "to_s", &[])?;
+    let team: String = team.as_ref().try_into()?;
+    unsafe {
+        ACCESS_TEAM = Some(team);
+    }
+    Ok(args[0].clone())
+}
+
+/// Access.get_identity(cf_authorization_token) -> AccessIdentity
+#[cfg(feature = "enable-external")]
+fn uzumibi_access_get_identity(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let token = mrb_funcall(vm, args[0].clone().into(), "to_s", &[])?;
+    let token: String = token.as_ref().try_into()?;
+
+    let team = unsafe {
+        ACCESS_TEAM.as_ref().ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi::Access.team is not set".to_string())
+        })?
+    };
+
+    let url = format!(
+        "https://{}.cloudflareaccess.com/cdn-cgi/access/get-identity",
+        team
+    );
+
+    // Pack Cookie header
+    let cookie_value = format!("CF_Authorization={}", token);
+    let mut headers_buf = Vec::new();
+    let count: u16 = 1;
+    headers_buf.extend_from_slice(&count.to_le_bytes());
+    let key = b"cookie";
+    headers_buf.extend_from_slice(&(key.len() as u16).to_le_bytes());
+    headers_buf.extend_from_slice(key);
+    let val = cookie_value.as_bytes();
+    headers_buf.extend_from_slice(&(val.len() as u16).to_le_bytes());
+    headers_buf.extend_from_slice(val);
+
+    let packed = cf_fetch(&url, "GET", "", &headers_buf)
+        .map_err(|e| mrubyedge::Error::RuntimeError(format!("Access fetch failed: {}", e)))?;
+
+    let body = unpack_response_body(&packed)?;
+
+    // Parse JSON body using mrubyedge-serde-json
+    let body_robj = RObject::string(body).to_refcount_assigned();
+    let json_value = mrubyedge_serde_json::mrb_json_class_load(vm, &[body_robj])?;
+
+    // Create AccessIdentity and set fields from parsed JSON hash
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => {
+            return Err(mrubyedge::Error::RuntimeError(
+                "Uzumibi must be a module".to_string(),
+            ));
+        }
+    };
+    let identity_class = uzumibi_module
+        .get_const_by_name("AccessIdentity")
+        .ok_or_else(|| {
+            mrubyedge::Error::RuntimeError(
+                "Uzumibi::AccessIdentity class not found".to_string(),
+            )
+        })?;
+    let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
+
+    // Extract known fields from JSON hash
+    let field_mappings = [
+        ("id", "@id"),
+        ("name", "@name"),
+        ("email", "@email"),
+        ("groups", "@groups"),
+    ];
+    for (json_key, ivar_key) in &field_mappings {
+        let val = mrb_funcall(
+            vm,
+            Some(json_value.clone()),
+            "[]",
+            &[RObject::string(json_key.to_string()).to_refcount_assigned()],
+        )?;
+        identity.set_ivar(ivar_key, val);
+    }
+
+    // Store raw data hash
+    identity.set_ivar("@raw_data", json_value);
+
+    Ok(identity)
+}
+
 // ---- Assets pass-through ----
 
 fn uzumibi_fetch_assets(
@@ -531,13 +664,41 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
         mrb_define_class_cmethod(vm, kv_class, "set", Box::new(uzumibi_kv_class_set));
 
         // Uzumibi::Queue.send(queue_name, message)
-        let queue_class = vm.define_class("Queue", None, Some(uzumibi_module));
+        let queue_class = vm.define_class("Queue", None, Some(uzumibi_module.clone()));
         mrb_define_class_cmethod(
             vm,
             queue_class,
             "send",
             Box::new(uzumibi_queue_class_send),
         );
+
+        // Uzumibi::Access.team= / Uzumibi::Access.get_identity(token)
+        let access_class = vm.define_class("Access", None, Some(uzumibi_module.clone()));
+        mrb_define_class_cmethod(
+            vm,
+            access_class.clone(),
+            "team=",
+            Box::new(uzumibi_access_set_team),
+        );
+        mrb_define_class_cmethod(
+            vm,
+            access_class,
+            "get_identity",
+            Box::new(uzumibi_access_get_identity),
+        );
+
+        // Uzumibi::AccessIdentity with attr_accessor for common fields
+        let identity_class = vm.define_class("AccessIdentity", None, Some(uzumibi_module));
+        let identity_class_obj = RObject::class(identity_class, vm);
+        for attr in ["id", "name", "email", "groups", "raw_data"] {
+            mrb_funcall(
+                vm,
+                Some(identity_class_obj.clone()),
+                "attr_accessor",
+                &[RObject::symbol(mrubyedge::yamrb::value::RSym::new(attr.to_string())).to_refcount_assigned()],
+            )
+            .expect("attr_accessor failed");
+        }
     }
 
     #[cfg(feature = "queue")]

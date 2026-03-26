@@ -1926,6 +1926,7 @@ name = "uzumibi-cloudflare-ext"
 version = "0.1.0"
 dependencies = [
  "mrubyedge",
+ "mrubyedge-serde-json",
  "uzumibi-gem 0.6.0",
 ]
 
