@@ -1092,9 +1092,9 @@ dependencies = [
 
 [[package]]
 name = "mrubyedge-serde-json"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ae563f43f788c3fdc7553de60f74780afca2501ebbbb75663661a28be703c93"
+checksum = "60953e31100c8113299bda08774f247902c446381370b89dbe8ead31c2658b7a"
 dependencies = [
  "mrubyedge",
  "serde",

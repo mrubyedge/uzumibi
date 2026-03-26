@@ -16,6 +16,8 @@ use mrubyedge::{
 use crate::{request::*, response::*};
 
 extern crate mrubyedge;
+#[cfg(feature = "use-json")]
+extern crate mrubyedge_serde_json;
 extern crate uzumibi_art_router;
 
 ///
@@ -34,6 +36,11 @@ extern crate uzumibi_art_router;
 /// ```
 ///
 pub fn init_uzumibi(vm: &mut VM) {
+    #[cfg(feature = "use-json")]
+    {
+        mrubyedge_serde_json::init_json(vm);
+    }
+
     let uzumibi = vm.define_module("Uzumibi", None);
     let router_class = vm.define_class("Router", None, Some(uzumibi.clone()));
 
