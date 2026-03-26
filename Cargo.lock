@@ -1924,6 +1924,8 @@ dependencies = [
 [[package]]
 name = "uzumibi-cloudflare-ext"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5df64a96c728805274d9ae609e033cda2da0421cfda37566a11778de2af49064"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
@@ -1932,9 +1934,7 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-cloudflare-ext"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5df64a96c728805274d9ae609e033cda2da0421cfda37566a11778de2af49064"
+version = "0.2.0"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
@@ -1981,7 +1981,7 @@ dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-cloudflare-ext 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-cloudflare-ext 0.1.0",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "queue")]
 use mrubyedge::yamrb::value::RSym;
+#[expect(unused_imports)]
 use mrubyedge::yamrb::{
     helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
     prelude::hash::{mrb_hash_new, mrb_hash_set_index},
