@@ -4,14 +4,14 @@ extern crate uzumibi_gem;
 
 use std::rc::Rc;
 
+#[cfg(feature = "queue")]
+use mrubyedge::yamrb::value::RSym;
 use mrubyedge::yamrb::{
     helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
     prelude::hash::{mrb_hash_new, mrb_hash_set_index},
     value::{RObject, RValue},
     vm::VM,
 };
-#[cfg(feature = "queue")]
-use mrubyedge::yamrb::value::RSym;
 
 /// Special return value indicating that the request should be passed through to static assets.
 pub const PASS_ASSETS: u64 = 0xFEFFFFFF;
@@ -399,7 +399,10 @@ fn uzumibi_queue_class_send(
 
 /// Message.ack! -> delegates to JS
 #[cfg(feature = "queue")]
-fn uzumibi_message_ack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, mrubyedge::Error> {
+fn uzumibi_message_ack(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
     let self_obj = vm.getself()?;
     let id_obj = self_obj.get_ivar("@id");
     if matches!(id_obj.as_ref().value, RValue::Nil) {
@@ -575,19 +578,12 @@ fn uzumibi_access_get_identity(
     let identity_class = uzumibi_module
         .get_const_by_name("AccessIdentity")
         .ok_or_else(|| {
-            mrubyedge::Error::RuntimeError(
-                "Uzumibi::AccessIdentity class not found".to_string(),
-            )
+            mrubyedge::Error::RuntimeError("Uzumibi::AccessIdentity class not found".to_string())
         })?;
     let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
 
     // Extract known fields from JSON hash
-    let field_mappings = [
-        ("id", "@id"),
-        ("name", "@name"),
-        ("email", "@email"),
-        ("groups", "@groups"),
-    ];
+    let field_mappings = [("user_uuid", "@user_uuid"), ("email", "@email")];
     for (json_key, ivar_key) in &field_mappings {
         let val = mrb_funcall(
             vm,
@@ -633,12 +629,7 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
         "debug_console",
         Box::new(uzumibi_kernel_debug_console_log),
     );
-    mrb_define_cmethod(
-        vm,
-        object,
-        "fetch_assets",
-        Box::new(uzumibi_fetch_assets),
-    );
+    mrb_define_cmethod(vm, object, "fetch_assets", Box::new(uzumibi_fetch_assets));
 
     #[cfg(feature = "enable-external")]
     {
@@ -655,22 +646,12 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
 
         // Uzumibi::KV.get(key) / Uzumibi::KV.set(key, value)
         let kv_class = vm.define_class("KV", None, Some(uzumibi_module.clone()));
-        mrb_define_class_cmethod(
-            vm,
-            kv_class.clone(),
-            "get",
-            Box::new(uzumibi_kv_class_get),
-        );
+        mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_class_get));
         mrb_define_class_cmethod(vm, kv_class, "set", Box::new(uzumibi_kv_class_set));
 
         // Uzumibi::Queue.send(queue_name, message)
         let queue_class = vm.define_class("Queue", None, Some(uzumibi_module.clone()));
-        mrb_define_class_cmethod(
-            vm,
-            queue_class,
-            "send",
-            Box::new(uzumibi_queue_class_send),
-        );
+        mrb_define_class_cmethod(vm, queue_class, "send", Box::new(uzumibi_queue_class_send));
 
         // Uzumibi::Access.team= / Uzumibi::Access.get_identity(token)
         let access_class = vm.define_class("Access", None, Some(uzumibi_module.clone()));
@@ -690,12 +671,15 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
         // Uzumibi::AccessIdentity with attr_accessor for common fields
         let identity_class = vm.define_class("AccessIdentity", None, Some(uzumibi_module));
         let identity_class_obj = RObject::class(identity_class, vm);
-        for attr in ["id", "name", "email", "groups", "raw_data"] {
+        for attr in ["user_uuid", "email", "raw_data"] {
             mrb_funcall(
                 vm,
                 Some(identity_class_obj.clone()),
                 "attr_accessor",
-                &[RObject::symbol(mrubyedge::yamrb::value::RSym::new(attr.to_string())).to_refcount_assigned()],
+                &[
+                    RObject::symbol(mrubyedge::yamrb::value::RSym::new(attr.to_string()))
+                        .to_refcount_assigned(),
+                ],
             )
             .expect("attr_accessor failed");
         }
@@ -732,12 +716,7 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
             "ack!",
             Box::new(uzumibi_message_ack),
         );
-        mrb_define_cmethod(
-            vm,
-            message_class,
-            "retry",
-            Box::new(uzumibi_message_retry),
-        );
+        mrb_define_cmethod(vm, message_class, "retry", Box::new(uzumibi_message_retry));
     }
 }
 
