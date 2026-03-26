@@ -84,6 +84,12 @@ pub(crate) fn init_uzumibi_response(vm: &mut VM) {
         "to_shared_memory",
         Box::new(uzumibi_response_to_shared_memory),
     );
+    mrb_define_cmethod(
+        vm,
+        response_class_,
+        "return",
+        Box::new(uzumibi_response_return),
+    );
 }
 
 fn as_sym(name: impl Into<String>) -> Rc<RObject> {
@@ -111,6 +117,26 @@ pub(crate) fn uzumibi_response_new(vm: &mut VM) -> Rc<RObject> {
         }
         _ => panic!("Response class must be defined beforehand"),
     }
+}
+
+/// res.return(status_code, headers, body) -> self
+fn uzumibi_response_return(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+
+    if args.len() < 3 {
+        return Err(Error::RuntimeError(
+            "wrong number of arguments (expected 3: status_code, headers, body)".to_string(),
+        ));
+    }
+
+    self_obj.set_ivar(RESPONSE_STATUS_CODE_IVAR_KEY, args[0].clone());
+    self_obj.set_ivar(RESPONSE_HEADERS_IVAR_KEY, args[1].clone());
+    self_obj.set_ivar(RESPONSE_BODY_IVAR_KEY, args[2].clone());
+
+    Ok(self_obj)
 }
 
 fn uzumibi_response_to_shared_memory(
