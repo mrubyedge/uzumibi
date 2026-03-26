@@ -1,4 +1,6 @@
 class App < Uzumibi::Router
+  Uzumibi::Access.team = "xxx-spike"
+
   get "/" do |req, res|
     debug_console("[Uzumibi] Received request at /")
     debug_console("[Uzumibi] Requested UA: #{req.headers["user-agent"]}")
@@ -15,6 +17,23 @@ class App < Uzumibi::Router
       "to live embers buried under a layer of ash\n" +
       "to keep the fire from going out.\n"
     res
+  end
+
+  get "/users/me" do |req, res|
+    auth = req.cookie["CF_Authorization"]
+    user = Uzumibi::Access.get_identity(auth)
+    hash = {
+      "email" => user.email,
+      "id" => user.user_uuid,
+      "data" => user.raw_data
+    }
+    debug_console("[Uzumibi] Authenticated user: #{hash.inspect}")
+
+    res.return(
+      200,
+      { "Content-Type" => "application/json" },
+      JSON.generate({ "email" => user.email })
+    )
   end
 
   get "/rand/:seed" do |req, res|

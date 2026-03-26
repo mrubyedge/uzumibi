@@ -1,7 +1,7 @@
 #![allow(static_mut_refs)]
 extern crate mrubyedge;
-extern crate uzumibi_gem;
 extern crate uzumibi_cloudflare_ext;
+extern crate uzumibi_gem;
 
 use std::mem::MaybeUninit;
 
@@ -40,6 +40,7 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
     let mut rite = rite::load(MRB)
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
+    mrubyedge_serde_json::init_json(&mut vm);
     uzumibi_gem::init::init_uzumibi(&mut vm);
     uzumibi_cloudflare_ext::init_cloudflare_ext(&mut vm);
 

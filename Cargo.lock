@@ -1957,6 +1957,7 @@ version = "0.1.0"
 dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
+ "mrubyedge-serde-json",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "uzumibi-cloudflare-ext",
  "uzumibi-gem 0.6.0",

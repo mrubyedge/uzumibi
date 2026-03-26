@@ -7,9 +7,20 @@
 	"name": "uzumibi-on-cloudflare-spike",
 	"main": "src/index.js",
 	"compatibility_date": "2025-12-30",
+	"workers_dev": true,
 	"observability": {
 		"enabled": true
 	},
+	/**
+	 * Custom Domains
+	 * https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+	 */
+	"routes": [
+		{
+			"pattern": "xxx.udzura.jp",
+			"custom_domain": true
+		}
+	],
 	/**
 	 * Assets
 	 * Static files served via env.ASSETS.fetch()
@@ -65,13 +76,6 @@
 			{
 				"binding": "UZUMIBI_QUEUE",
 				"queue": "uzumibi-queue"
-			}
-		],
-		"consumers": [
-			{
-				"queue": "my-queue-name",
-				"max_batch_size": 10,
-				"max_batch_timeout": 5
 			}
 		]
 	}
