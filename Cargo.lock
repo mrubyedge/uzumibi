@@ -1924,6 +1924,10 @@ dependencies = [
 [[package]]
 name = "uzumibi-cloudflare-ext"
 version = "0.1.0"
+dependencies = [
+ "mrubyedge",
+ "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "uzumibi-gem"
@@ -1953,6 +1957,7 @@ dependencies = [
  "mruby-compiler2-sys",
  "mrubyedge",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-cloudflare-ext",
  "uzumibi-gem 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
