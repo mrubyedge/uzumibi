@@ -1,6 +1,6 @@
 [package]
 name = "uzumibi-gem"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 description = "Uzumibi is a mruby/edge gem for serverless environment"
@@ -10,7 +10,7 @@ license = "BSD-3-Clause"
 mrubyedge = { version = ">= 1.1.0", features = [
     "no-wasi",
 ], default-features = false }
-mrubyedge-serde-json = { version = ">= 0.1.0", optional = true }
+mrubyedge-serde-json = { version = ">= 0.1.2", optional = true }
 uzumibi-art-router = ">= 0.3.1"
 
 [dev-dependencies]
