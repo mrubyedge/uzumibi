@@ -1974,6 +1974,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-google"
+version = "0.1.0"
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [

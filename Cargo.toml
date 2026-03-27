@@ -4,6 +4,7 @@ members = [
     "uzumibi-cli",
     "uzumibi-cloudflare-ext",
     "uzumibi-gem",
+    "uzumibi-google",
     "uzumibi-on-cloudflare-spike/wasm-app",
     "uzumibi-on-cloudrun-spike",
     "uzumibi-on-fastly-spike",
