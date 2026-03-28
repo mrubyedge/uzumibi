@@ -4,6 +4,8 @@ use thiserror::Error;
 
 const METADATA_SERVER_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
+const PROJECT_ID_METADATA_URL: &str =
+    "http://metadata.google.internal/computeMetadata/v1/project/project-id";
 
 #[derive(Error, Debug)]
 pub enum GoogleAuthError {
@@ -15,6 +17,8 @@ pub enum GoogleAuthError {
     AccessTokenNotFound,
     #[error("Invalid metadata server response: {0}")]
     InvalidMetadataResponse(String),
+    #[error("Project ID not found in response")]
+    ProjectIdNotFound,
 }
 
 #[derive(Deserialize, Debug)]
@@ -49,6 +53,33 @@ pub fn get_authorization_token_from_metadata() -> Result<String, GoogleAuthError
     }
 
     Ok(token_response.access_token)
+}
+
+/// Obtains the Google Cloud project ID from the metadata server.
+///
+/// This function is intended to be used within Google Cloud environments (e.g., Compute Engine, Cloud Run)
+/// where the metadata server is accessible. It makes a blocking HTTP request to the metadata server
+/// to retrieve the project ID.
+///
+/// # Returns
+/// A `Result` which is:
+/// - `Ok(String)` containing the project ID if successful.
+/// - `Err(GoogleAuthError)` if an error occurs during the request or if the project ID is not found.
+pub fn get_project_id_from_metadata() -> Result<String, GoogleAuthError> {
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(PROJECT_ID_METADATA_URL)
+        .header("Metadata-Flavor", "Google")
+        .send()?
+        .error_for_status()?;
+
+    let project_id = response.text()?;
+
+    if project_id.is_empty() {
+        return Err(GoogleAuthError::ProjectIdNotFound);
+    }
+
+    Ok(project_id)
 }
 
 #[cfg(test)]
