@@ -2515,6 +2515,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "mockito",
+ "mrubyedge",
+ "mrubyedge-serde-json",
  "reqwest",
  "serde",
  "serde_json",
