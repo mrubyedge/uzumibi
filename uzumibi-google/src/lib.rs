@@ -6,7 +6,7 @@ use std::rc::Rc;
 use mrubyedge::{
     Error,
     yamrb::{
-        helpers::{mrb_define_class_cmethod, mrb_define_module_cmethod},
+        helpers::{mrb_define_class_cmethod, mrb_define_module_cmethod, mrb_funcall},
         value::RObject,
         vm::VM,
     },
@@ -99,6 +99,9 @@ fn uzumibi_google_fetch_token(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<R
 fn uzumibi_google_token(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let klass = vm.getself()?;
     let token = klass.get_ivar(TOKEN_IVAR_KEY);
+    if token.is_falsy() {
+        return uzumibi_google_fetch_token(vm, _args);
+    }
     Ok(token)
 }
 
@@ -129,6 +132,9 @@ fn uzumibi_google_fetch_project_id(
 fn uzumibi_google_project_id(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let klass = vm.getself()?;
     let project_id = klass.get_ivar(PROJECT_ID_IVAR_KEY);
+    if project_id.is_falsy() {
+        return uzumibi_google_fetch_project_id(vm, _args);
+    }
     Ok(project_id)
 }
 
@@ -147,28 +153,15 @@ fn uzumibi_google_set_project_id(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc
 
 fn get_google_credentials(vm: &mut VM) -> Result<(String, String), Error> {
     let google_mod = vm.get_module_by_name("Google");
-
     let google_obj = RObject::module(google_mod).to_refcount_assigned();
 
-    let token_obj = google_obj.get_ivar(TOKEN_IVAR_KEY);
-    if token_obj.is_falsy() {
-        return Err(Error::RuntimeError(
-            "Token not set. Call Uzumibi::Google.fetch_token or Uzumibi::Google.token= first"
-                .to_string(),
-        ));
-    }
+    let token_obj = mrb_funcall(vm, Some(google_obj.clone()), "token", &[])?;
     let token: String = token_obj
         .as_ref()
         .try_into()
         .map_err(|e| Error::RuntimeError(format!("Invalid token: {}", e)))?;
 
-    let project_id_obj = google_obj.get_ivar(PROJECT_ID_IVAR_KEY);
-    if project_id_obj.is_falsy() {
-        return Err(Error::RuntimeError(
-            "Project ID not set. Call Uzumibi::Google.fetch_project_id or Uzumibi::Google.project_id= first"
-                .to_string(),
-        ));
-    }
+    let project_id_obj = mrb_funcall(vm, Some(google_obj), "project_id", &[])?;
     let project_id: String = project_id_obj
         .as_ref()
         .try_into()
