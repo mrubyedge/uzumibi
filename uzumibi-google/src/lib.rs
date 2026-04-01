@@ -38,6 +38,27 @@ const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 ///       def self.get(key: String) -> String?
 ///       def self.set(key: String, value: String) -> bool
 ///     end
+///     class Fetch
+///       def self.fetch(url: String, method: String = "GET", body: String = "", headers: Hash[String, String] = {}) -> Response
+///     end
+///     class Queue
+///       def self.send(topic_name: String, message: String) -> bool
+///     end
+///     class Message
+///       attr_accessor id: String
+///       attr_accessor timestamp: String
+///       attr_accessor body: String
+///       def ack!() -> bool
+///       def nack!() -> bool
+///       def retry!(delay_seconds: Integer) -> bool
+///     end
+///     class Access
+///       def self.get_identity(jwt_token: String, expected_audience: String?) -> Identity
+///     end
+///     class Identity
+///       attr_accessor user_uuid: String
+///       attr_accessor email: String
+///     end
 ///   end
 /// ```
 pub fn init_google(vm: &mut VM) {
