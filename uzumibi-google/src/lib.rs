@@ -5,6 +5,8 @@ pub mod pubsub;
 
 use std::rc::Rc;
 
+#[cfg(feature = "queue")]
+use base64::Engine;
 use mrubyedge::{
     Error,
     yamrb::{
@@ -588,10 +590,7 @@ fn uzumibi_message_retry(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
 }
 
 #[cfg(feature = "queue")]
-fn uzumibi_consumer_on_receive(
-    _vm: &mut VM,
-    _args: &[Rc<RObject>],
-) -> Result<Rc<RObject>, Error> {
+fn uzumibi_consumer_on_receive(_vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     Err(Error::RuntimeError(
         "on_receive must be implemented by subclass of Uzumibi::Consumer".to_string(),
     ))
@@ -661,4 +660,68 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
     );
 
     Ok(identity)
+}
+
+/// Unpack a queue message from Cloud Run Pub/Sub push body and call `$CONSUMER.on_receive(message)`.
+///
+/// Expected body format is Pub/Sub push JSON.
+#[cfg(feature = "queue")]
+pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> Result<(), mrubyedge::Error> {
+    let push: pubsub::PushRequestBody = serde_json::from_slice(buf).map_err(|e| {
+        mrubyedge::Error::RuntimeError(format!("Failed to parse Pub/Sub push body: {}", e))
+    })?;
+
+    let id = push.message.message_id.unwrap_or_default();
+    let timestamp = push.message.publish_time.unwrap_or_default();
+    let subscription = push.subscription.unwrap_or_default();
+    let attempts = push.delivery_attempt.unwrap_or(1) as i64;
+
+    let raw_data = push.message.data.unwrap_or_default();
+    let body = match base64::engine::general_purpose::STANDARD.decode(raw_data.as_bytes()) {
+        Ok(decoded) => String::from_utf8(decoded).map_err(|e| {
+            mrubyedge::Error::RuntimeError(format!("Failed to decode Pub/Sub data as UTF-8: {}", e))
+        })?,
+        Err(_) => raw_data,
+    };
+
+    // Create Uzumibi::Message instance
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => {
+            return Err(mrubyedge::Error::RuntimeError(
+                "Uzumibi must be a module".to_string(),
+            ));
+        }
+    };
+    let message_class = uzumibi_module.get_const_by_name("Message").ok_or_else(|| {
+        mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
+    })?;
+    let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
+
+    message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
+    message.set_ivar(
+        "@timestamp",
+        RObject::string(timestamp).to_refcount_assigned(),
+    );
+    message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
+    message.set_ivar(
+        "@attempts",
+        RObject::integer(attempts).to_refcount_assigned(),
+    );
+    message.set_ivar(
+        "@subscription",
+        RObject::string(subscription).to_refcount_assigned(),
+    );
+
+    // Call $CONSUMER.on_receive(message)
+    let consumer = vm
+        .globals
+        .get("$CONSUMER")
+        .ok_or_else(|| mrubyedge::Error::RuntimeError("$CONSUMER is not defined".to_string()))?;
+    mrb_funcall(vm, consumer.clone().into(), "on_receive", &[message])?;
+
+    Ok(())
 }
