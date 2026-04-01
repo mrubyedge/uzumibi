@@ -8,11 +8,15 @@ use std::rc::Rc;
 use mrubyedge::{
     Error,
     yamrb::{
-        helpers::{mrb_define_class_cmethod, mrb_define_module_cmethod, mrb_funcall},
-        value::RObject,
+        helpers::{
+            mrb_define_class_cmethod, mrb_define_cmethod, mrb_define_module_cmethod, mrb_funcall,
+        },
+        prelude::hash::{mrb_hash_new, mrb_hash_set_index},
+        value::{RObject, RSym, RValue},
         vm::VM,
     },
 };
+use reqwest::blocking::Client;
 
 const TOKEN_IVAR_KEY: &str = "@token";
 const PROJECT_ID_IVAR_KEY: &str = "@project_id";
@@ -84,6 +88,67 @@ pub fn init_google(vm: &mut VM) {
 
     mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_get));
     mrb_define_class_cmethod(vm, kv_class.clone(), "set", Box::new(uzumibi_kv_set));
+
+    // Uzumibi::Fetch class
+    let fetch_class = vm.define_class("Fetch", None, Some(uzumibi.clone()));
+    mrb_define_class_cmethod(
+        vm,
+        fetch_class,
+        "fetch",
+        Box::new(uzumibi_fetch_class_fetch),
+    );
+
+    // Uzumibi::Queue class
+    let queue_class = vm.define_class("Queue", None, Some(uzumibi.clone()));
+    mrb_define_class_cmethod(vm, queue_class, "send", Box::new(uzumibi_queue_class_send));
+
+    // Uzumibi::Message class
+    let message_class = vm.define_class("Message", None, Some(uzumibi.clone()));
+    let message_class_obj = RObject::class(message_class.clone(), vm);
+    for attr in ["id", "timestamp", "body"] {
+        mrb_funcall(
+            vm,
+            Some(message_class_obj.clone()),
+            "attr_accessor",
+            &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+        )
+        .expect("attr_accessor failed");
+    }
+    mrb_define_cmethod(
+        vm,
+        message_class.clone(),
+        "ack!",
+        Box::new(uzumibi_message_ack),
+    );
+    mrb_define_cmethod(
+        vm,
+        message_class.clone(),
+        "nack!",
+        Box::new(uzumibi_message_nack),
+    );
+    mrb_define_cmethod(vm, message_class, "retry!", Box::new(uzumibi_message_retry));
+
+    // Uzumibi::Access class
+    let access_class = vm.define_class("Access", None, Some(uzumibi.clone()));
+    mrb_define_class_cmethod(
+        vm,
+        access_class,
+        "get_identity",
+        Box::new(uzumibi_access_get_identity),
+    );
+
+    // Uzumibi::Identity class
+    let identity_class = vm.define_class("Identity", None, Some(uzumibi));
+    let identity_class_obj = RObject::class(identity_class, vm);
+    for attr in ["user_uuid", "email"] {
+        mrb_funcall(
+            vm,
+            Some(identity_class_obj.clone()),
+            "attr_accessor",
+            &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+        )
+        .expect("attr_accessor failed");
+    }
 }
 
 // --- Uzumibi::Google methods ---
@@ -213,4 +278,341 @@ fn uzumibi_kv_set(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Erro
         Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
         Err(e) => Err(Error::RuntimeError(format!("KV set failed: {}", e))),
     }
+}
+
+// --- Uzumibi::Fetch methods ---
+
+/// Fetch.fetch(url, method="GET", body="", headers={}) -> Response
+fn uzumibi_fetch_class_fetch(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError("Expected 1 argument: url".to_string()));
+    }
+
+    let url_obj = &args[0];
+    let url = mrb_funcall(vm, url_obj.clone().into(), "to_s", &[])?;
+    let url: String = url.as_ref().try_into()?;
+
+    let method = if args.len() > 1 {
+        let m = mrb_funcall(vm, args[1].clone().into(), "to_s", &[])?;
+        let m: String = m.as_ref().try_into()?;
+        m
+    } else {
+        "GET".to_string()
+    };
+
+    let body = if args.len() > 2 {
+        let b = mrb_funcall(vm, args[2].clone().into(), "to_s", &[])?;
+        let b: String = b.as_ref().try_into()?;
+        b
+    } else {
+        String::new()
+    };
+
+    // Parse headers from Hash (4th argument)
+    let mut headers_map = std::collections::HashMap::new();
+    if args.len() > 3
+        && let RValue::Hash(h) = &args[3].as_ref().value
+    {
+        let hash = h.borrow();
+        for (_, (key_obj, value_obj)) in hash.iter() {
+            let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+            let key: String = key.as_ref().try_into()?;
+            let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
+            let value: String = value.as_ref().try_into()?;
+            headers_map.insert(key, value);
+        }
+    }
+
+    // Make HTTP request
+    let client = Client::new();
+    let mut request = match method.as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
+        "DELETE" => client.delete(&url),
+        "HEAD" => client.head(&url),
+        _ => {
+            return Err(Error::RuntimeError(format!(
+                "Unsupported HTTP method: {}",
+                method
+            )));
+        }
+    };
+
+    // Add headers
+    for (key, value) in headers_map {
+        request = request.header(key, value);
+    }
+
+    // Add body for methods that support it
+    if !body.is_empty() && matches!(method.as_str(), "POST" | "PUT" | "PATCH") {
+        request = request.body(body);
+    }
+
+    let response = request
+        .send()
+        .map_err(|e| Error::RuntimeError(format!("HTTP request failed: {}", e)))?;
+
+    let status_code = response.status().as_u16();
+    let response_headers = response.headers().clone();
+    let response_body = response
+        .text()
+        .map_err(|e| Error::RuntimeError(format!("Failed to read response body: {}", e)))?;
+
+    // Create Uzumibi::Response instance
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+    let response_class = uzumibi_module
+        .get_const_by_name("Response")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Response class not found".to_string()))?;
+    let response_obj = mrb_funcall(vm, Some(response_class), "new", &[])?;
+
+    response_obj.set_ivar(
+        "@status_code",
+        RObject::integer(status_code as i64).to_refcount_assigned(),
+    );
+
+    let headers_hash = mrb_hash_new(vm, &[])?;
+    for (key, value) in response_headers.iter() {
+        let key_str = key.to_string();
+        let value_str = value.to_str().unwrap_or("").to_string();
+        mrb_hash_set_index(
+            headers_hash.clone(),
+            RObject::string(key_str).to_refcount_assigned(),
+            RObject::string(value_str).to_refcount_assigned(),
+        )?;
+    }
+    response_obj.set_ivar("@headers", headers_hash);
+
+    response_obj.set_ivar(
+        "@body",
+        RObject::string(response_body).to_refcount_assigned(),
+    );
+
+    Ok(response_obj)
+}
+
+// --- Uzumibi::Queue methods ---
+
+/// Queue.send(topic_name, message) -> bool
+fn uzumibi_queue_class_send(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.len() < 2 {
+        return Err(Error::ArgumentError(
+            "Expected 2 arguments: topic_name, message".to_string(),
+        ));
+    }
+
+    let topic_obj = &args[0];
+    let topic = mrb_funcall(vm, topic_obj.clone().into(), "to_s", &[])?;
+    let topic: String = topic.as_ref().try_into()?;
+
+    let message_obj = &args[1];
+    let message = mrb_funcall(vm, message_obj.clone().into(), "to_s", &[])?;
+    let message: String = message.as_ref().try_into()?;
+
+    let (token, _project_id) = get_google_credentials(vm)?;
+
+    let pubsub_message = pubsub::PubsubMessage {
+        data: Some(message),
+        attributes: None,
+        message_id: None,
+        publish_time: None,
+        ordering_key: None,
+    };
+
+    match pubsub::publish(&token, &topic, vec![pubsub_message]) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!(
+            "Failed to send message: {}",
+            e
+        ))),
+    }
+}
+
+// --- Uzumibi::Message methods ---
+
+/// Message#ack! -> bool
+fn uzumibi_message_ack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
+
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    let (token, _project_id) = get_google_credentials(vm)?;
+
+    // Get subscription from message or use default
+    let subscription_obj = self_obj.get_ivar("@subscription");
+    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @subscription".to_string(),
+        ));
+    } else {
+        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
+        let sub: String = sub.as_ref().try_into()?;
+        sub
+    };
+
+    match pubsub::acknowledge(&token, &subscription, vec![id]) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!("Failed to ack message: {}", e))),
+    }
+}
+
+/// Message#nack! -> bool (modifyAckDeadline with 0 seconds)
+fn uzumibi_message_nack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
+
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    let (token, _project_id) = get_google_credentials(vm)?;
+
+    let subscription_obj = self_obj.get_ivar("@subscription");
+    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @subscription".to_string(),
+        ));
+    } else {
+        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
+        let sub: String = sub.as_ref().try_into()?;
+        sub
+    };
+
+    match pubsub::modify_ack_deadline(&token, &subscription, vec![id], 0) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!(
+            "Failed to nack message: {}",
+            e
+        ))),
+    }
+}
+
+/// Message#retry!(delay_seconds: N) -> bool
+fn uzumibi_message_retry(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
+
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    let delay_seconds: i32 = match vm.get_kwargs() {
+        Some(kwargs) => match kwargs.get("delay_seconds") {
+            Some(val) => {
+                let v: i64 = val.as_ref().try_into()?;
+                v as i32
+            }
+            None => 0,
+        },
+        None => 0,
+    };
+
+    let (token, _project_id) = get_google_credentials(vm)?;
+
+    let subscription_obj = self_obj.get_ivar("@subscription");
+    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
+        return Err(Error::RuntimeError(
+            "Message object does not have @subscription".to_string(),
+        ));
+    } else {
+        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
+        let sub: String = sub.as_ref().try_into()?;
+        sub
+    };
+
+    match pubsub::modify_ack_deadline(&token, &subscription, vec![id], delay_seconds) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!(
+            "Failed to retry message: {}",
+            e
+        ))),
+    }
+}
+
+// --- Uzumibi::Access methods ---
+
+/// Access.get_identity(jwt_token) -> Identity
+fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: jwt_token".to_string(),
+        ));
+    }
+
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+
+    let token_obj = &args[0];
+    let token = mrb_funcall(vm, token_obj.clone().into(), "to_s", &[])?;
+    let token: String = token.as_ref().try_into()?;
+
+    let expected_audience = if args.len() > 1 {
+        let aud = mrb_funcall(vm, args[1].clone().into(), "to_s", &[])?;
+        let aud: String = aud.as_ref().try_into()?;
+        aud
+    } else {
+        let google_const = uzumibi_module
+            .get_const_by_name("Google")
+            .ok_or_else(|| Error::RuntimeError("Uzumibi::Google module not found".to_string()))?;
+        let google_mod = match &google_const.as_ref().value {
+            RValue::Module(m) => m.clone(),
+            _ => {
+                return Err(Error::RuntimeError(
+                    "Uzumibi::Google must be a module".to_string(),
+                ));
+            }
+        };
+        let google_obj = RObject::module(google_mod).to_refcount_assigned();
+        let project_id_obj = mrb_funcall(vm, Some(google_obj), "project_id", &[])?;
+        let project_id: String = project_id_obj.as_ref().try_into()?;
+        format!("/projects/{}/apps/default", project_id)
+    };
+
+    let claims = jwt::validate_iap_jwt(&token, &expected_audience)
+        .map_err(|e| Error::RuntimeError(format!("Failed to validate JWT: {}", e)))?;
+
+    // Create Uzumibi::Identity instance
+    let identity_class = uzumibi_module
+        .get_const_by_name("Identity")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Identity class not found".to_string()))?;
+
+    let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
+
+    identity.set_ivar(
+        "@user_uuid",
+        RObject::string(claims.sub).to_refcount_assigned(),
+    );
+    identity.set_ivar(
+        "@email",
+        RObject::string(claims.email).to_refcount_assigned(),
+    );
+
+    Ok(identity)
 }
