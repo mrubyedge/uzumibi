@@ -1,13 +1,12 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 use serde_json::{Value, json};
+use std::env;
 use thiserror::Error;
 
 use crate::meta::GoogleAuthError; // Re-use the existing error type
 
 const FIRESTORE_BASE_URL: &str = "https://firestore.googleapis.com/v1/projects";
-const DATABASE_ID: &str = "(default)"; // Default Firestore database ID
-const COLLECTION_ID: &str = "uzumibi_data"; // Fixed collection for now
 
 #[derive(Error, Debug)]
 pub enum FirestoreError {
@@ -21,16 +20,25 @@ pub enum FirestoreError {
     ValueFieldNotFound,
     #[error("Invalid value type in document: {0}")]
     InvalidValueType(String),
+    #[error("Missing required environment variable: {0}")]
+    MissingEnvVar(String),
     #[error("Google authentication error: {0}")]
     GoogleAuth(#[from] GoogleAuthError),
 }
 
 /// Constructs the full Firestore document URL.
-fn get_document_url(project_id: &str, document_id: &str) -> String {
-    format!(
+fn get_env_required(name: &str) -> Result<String, FirestoreError> {
+    env::var(name).map_err(|_| FirestoreError::MissingEnvVar(name.to_string()))
+}
+
+/// Constructs the full Firestore document URL.
+fn get_document_url(project_id: &str, document_id: &str) -> Result<String, FirestoreError> {
+    let database_id = get_env_required("UZUMIBI_DATABASE_ID")?;
+    let collection_id = get_env_required("UZUMIBI_COLLECTION_ID")?;
+    Ok(format!(
         "{}/{}/databases/{}/documents/{}/{}",
-        FIRESTORE_BASE_URL, project_id, DATABASE_ID, COLLECTION_ID, document_id
-    )
+        FIRESTORE_BASE_URL, project_id, database_id, collection_id, document_id
+    ))
 }
 
 /// Retrieves a string value from a Firestore document.
@@ -61,7 +69,7 @@ pub fn get_document(
     key: &str,
 ) -> Result<String, FirestoreError> {
     let client = Client::new();
-    let url = get_document_url(project_id, key);
+    let url = get_document_url(project_id, key)?;
 
     let response = client
         .get(&url)
@@ -121,7 +129,7 @@ pub fn set_document(
     value: &str,
 ) -> Result<bool, FirestoreError> {
     let client = Client::new();
-    let url = get_document_url(project_id, key);
+    let url = get_document_url(project_id, key)?;
 
     let body = json!({
         "fields": {
