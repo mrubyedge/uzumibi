@@ -52,6 +52,9 @@ const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 ///       def nack!() -> bool
 ///       def retry!(delay_seconds: Integer) -> bool
 ///     end
+///     class Consumer
+///       def on_receive(message: Message) -> untyped
+///     end
 ///     class Access
 ///       def self.get_identity(jwt_token: String, expected_audience: String?) -> Identity
 ///     end
@@ -148,6 +151,18 @@ pub fn init_google(vm: &mut VM) {
         Box::new(uzumibi_message_nack),
     );
     mrb_define_cmethod(vm, message_class, "retry!", Box::new(uzumibi_message_retry));
+
+    #[cfg(feature = "queue")]
+    {
+        // Uzumibi::Consumer (base class for user-defined consumers)
+        let consumer_class = vm.define_class("Consumer", None, Some(uzumibi.clone()));
+        mrb_define_cmethod(
+            vm,
+            consumer_class,
+            "on_receive",
+            Box::new(uzumibi_consumer_on_receive),
+        );
+    }
 
     // Uzumibi::Access class
     let access_class = vm.define_class("Access", None, Some(uzumibi.clone()));
@@ -570,6 +585,16 @@ fn uzumibi_message_retry(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObjec
             e
         ))),
     }
+}
+
+#[cfg(feature = "queue")]
+fn uzumibi_consumer_on_receive(
+    _vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    Err(Error::RuntimeError(
+        "on_receive must be implemented by subclass of Uzumibi::Consumer".to_string(),
+    ))
 }
 
 // --- Uzumibi::Access methods ---

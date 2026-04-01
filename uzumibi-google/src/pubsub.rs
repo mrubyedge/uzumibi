@@ -1,8 +1,41 @@
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
-
 const PUBSUB_BASE_URL: &str = "https://pubsub.googleapis.com/v1";
+
+/// Pub/Sub message payload for subscriber-side JSON.
+///
+/// This is intended for deserializing raw request bodies delivered by Pub/Sub.
+#[derive(Deserialize, Debug)]
+pub struct ReceivedPubsubMessage {
+    pub data: Option<String>,
+    pub attributes: Option<std::collections::HashMap<String, String>>,
+    #[serde(rename = "messageId", alias = "message_id")]
+    pub message_id: Option<String>,
+    #[serde(rename = "publishTime", alias = "publish_time")]
+    pub publish_time: Option<String>,
+    #[serde(rename = "orderingKey")]
+    pub ordering_key: Option<String>,
+}
+
+/// Subscriber-side wrapper used for pull responses or normalized internal handling.
+#[derive(Deserialize, Debug)]
+pub struct ReceivedMessage {
+    #[serde(rename = "ackId", alias = "ack_id")]
+    pub ack_id: Option<String>,
+    pub message: ReceivedPubsubMessage,
+    #[serde(rename = "deliveryAttempt", alias = "delivery_attempt")]
+    pub delivery_attempt: Option<i32>,
+}
+
+/// Push endpoint request body wrapper.
+#[derive(Deserialize, Debug)]
+pub struct PushRequestBody {
+    pub message: ReceivedPubsubMessage,
+    pub subscription: Option<String>,
+    #[serde(rename = "deliveryAttempt", alias = "delivery_attempt")]
+    pub delivery_attempt: Option<i32>,
+}
 
 #[derive(Serialize, Debug)]
 pub struct PubsubMessage {
@@ -44,7 +77,12 @@ pub fn publish(
     messages: Vec<PubsubMessage>,
 ) -> Result<PublishResponse, String> {
     let client = Client::new();
-    let url = format!("{}/projects/{}/topics/{}:publish", PUBSUB_BASE_URL, get_project_id_from_topic(topic)?, get_topic_name(topic)?);
+    let url = format!(
+        "{}/projects/{}/topics/{}:publish",
+        PUBSUB_BASE_URL,
+        get_project_id_from_topic(topic)?,
+        get_topic_name(topic)?
+    );
     let req_body = PublishRequest { messages };
 
     let res = client
