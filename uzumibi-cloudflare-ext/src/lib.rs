@@ -465,6 +465,34 @@ fn uzumibi_message_retry(
     Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
+/// Message.nack! -> retry with delay_seconds=0
+#[cfg(feature = "queue")]
+fn uzumibi_message_nack(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let self_obj = vm.getself()?;
+    let id_obj = self_obj.get_ivar("@id");
+    if matches!(id_obj.as_ref().value, RValue::Nil) {
+        return Err(mrubyedge::Error::RuntimeError(
+            "Message object does not have @id".to_string(),
+        ));
+    }
+    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
+    let id: String = id.as_ref().try_into()?;
+
+    unsafe {
+        let result = uzumibi_cf_message_retry(id.as_ptr(), id.len(), 0);
+        if result != 0 {
+            return Err(mrubyedge::Error::RuntimeError(format!(
+                "Failed to nack message: return code {}",
+                result
+            )));
+        }
+    }
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
 /// Consumer.on_receive(message) - abstract method, must be overridden
 #[cfg(feature = "queue")]
 fn uzumibi_consumer_on_receive(
@@ -716,6 +744,12 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
             message_class.clone(),
             "ack!",
             Box::new(uzumibi_message_ack),
+        );
+        mrb_define_cmethod(
+            vm,
+            message_class.clone(),
+            "nack!",
+            Box::new(uzumibi_message_nack),
         );
         mrb_define_cmethod(vm, message_class, "retry", Box::new(uzumibi_message_retry));
     }
