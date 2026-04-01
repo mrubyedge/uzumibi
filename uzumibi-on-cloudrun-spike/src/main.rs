@@ -14,6 +14,28 @@ const SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10)
 async fn uzumibi_request(
     request: Request<IncomingBody>,
 ) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    #[cfg(feature = "queue")]
+    {
+        let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
+        match uzumibi::uzumibi_dispatch_queue_message(&body_bytes) {
+            Ok(()) => {
+                let response = Response::builder()
+                    .status(200)
+                    .body(Full::new(Bytes::from_static(b"ok")))?;
+                return Ok(response);
+            }
+            Err(e) => {
+                let message = format!("Internal Server Error: {}", e);
+                let response = Response::builder()
+                    .status(500)
+                    .body(Full::new(Bytes::from(message.into_bytes())))?;
+                return Ok(response);
+            }
+        }
+    }
+
+    #[cfg(not(feature = "queue"))]
+    {
     let mut uzumibi_request = uzumibi::build_uzumibi_request(&request);
     // HINT: The body must be collected independently because
     //       mruby/edge and uzumibi_gem structures are not `Send`.
@@ -28,6 +50,7 @@ async fn uzumibi_request(
                 .body(Full::new(Bytes::from(message.into_bytes())))?;
             Ok(response)
         }
+    }
     }
 }
 

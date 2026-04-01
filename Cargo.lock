@@ -2764,6 +2764,7 @@ dependencies = [
  "mrubyedge",
  "tokio",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-google",
 ]
 
 [[package]]
