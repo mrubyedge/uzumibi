@@ -2742,6 +2742,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-google"
+version = "0.1.0-rc3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63a235ec1f48637e7e7b8eabf7bf30b5c7c651de833c961346e0ff0fc7d07272"
+dependencies = [
+ "anyhow",
+ "base64",
+ "jsonwebtoken",
+ "mrubyedge",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [
@@ -2764,7 +2780,7 @@ dependencies = [
  "mrubyedge",
  "tokio",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-google",
+ "uzumibi-google 0.1.0-rc3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
