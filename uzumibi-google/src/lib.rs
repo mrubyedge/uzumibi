@@ -6,7 +6,6 @@ pub mod pubsub;
 
 use std::rc::Rc;
 
-#[cfg(feature = "queue")]
 use base64::Engine;
 use mrubyedge::{
     Error,
@@ -471,10 +470,19 @@ fn uzumibi_queue_class_send(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObj
     let message = mrb_funcall(vm, message_obj.clone().into(), "to_s", &[])?;
     let message: String = message.as_ref().try_into()?;
 
-    let (token, _project_id) = get_google_credentials(vm)?;
+    let (token, project_id) = get_google_credentials(vm)?;
+
+    // Accept both short name ("my-topic") and full path ("projects/p/topics/my-topic").
+    let topic = if topic.starts_with("projects/") {
+        topic
+    } else {
+        format!("projects/{}/topics/{}", project_id, topic)
+    };
+
+    let encoded_message = base64::engine::general_purpose::STANDARD.encode(message.as_bytes());
 
     let pubsub_message = pubsub::PubsubMessage {
-        data: Some(message),
+        data: Some(encoded_message),
         attributes: None,
         message_id: None,
         publish_time: None,

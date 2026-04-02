@@ -16,20 +16,26 @@ class App < Uzumibi::Router
   end
 
   get "/users/me" do |req, res|
-    auth = req.cookie["CF_Authorization"]
-    user = Uzumibi::Access.get_identity(auth)
-    hash = {
-      "email" => user.email,
-      "id" => user.user_uuid,
-      "data" => user.raw_data
-    }
-    debug_console("[Uzumibi] Authenticated user: #{hash.inspect}")
+    debug_console("[Uzumibi] Received request: #{req.headers.inspect}")
+    auth = req.headers["x-goog-iap-jwt-assertion"]
+    debug_console("[Uzumibi] Authenticated token length: #{auth&.size}")
+    if auth.nil? || auth.empty?
+      res.return(503, { "Content-Type" => "text/plain" }, "IAP Authentication token is missing\n")
+    else
+      user = Uzumibi::Access.get_identity(auth)
+      hash = {
+        "email" => user.email,
+        "id" => user.user_uuid,
+        "data" => user.raw_data
+      }
+      debug_console("[Uzumibi] Authenticated user: #{hash.inspect}")
 
-    res.return(
-      200,
-      { "Content-Type" => "application/json" },
-      JSON.generate({ "email" => user.email })
-    )
+      res.return(
+        200,
+        { "Content-Type" => "application/json" },
+        JSON.generate({ "email" => user.email })
+      )
+    end
   end
 
   get "/rand/:seed" do |req, res|
@@ -55,7 +61,7 @@ class App < Uzumibi::Router
   end
 
   get "/queue/send" do |req, res|
-    Uzumibi::Queue.send("UZUMIBI_QUEUE", "Hello from Uzumibi Queue!")
+    Uzumibi::Queue.send("projects/#{Uzumibi::Google.project_id}/topics/uzumibi-spike", "Hello from Uzumibi Queue!")
     res.status_code = 200
     res.headers = { "Content-Type" => "text/plain" }
     res.body = "Sent message to queue\n"
