@@ -67,7 +67,9 @@ const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 ///   end
 /// ```
 pub fn init_google(vm: &mut VM) {
-    let uzumibi = vm.define_module("Uzumibi", None);
+    // init_uzumibi defines Uzumibi and core classes (e.g. Router).
+    // Reusing the existing module avoids wiping previously defined constants.
+    let uzumibi = vm.get_module_by_name("Uzumibi");
 
     // Uzumibi::Google module
     let google_mod = vm.define_module("Google", Some(uzumibi.clone()));
@@ -257,7 +259,20 @@ fn uzumibi_google_set_project_id(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc
 // --- Uzumibi::KV methods ---
 
 fn get_google_credentials(vm: &mut VM) -> Result<(String, String), Error> {
-    let google_mod = vm.get_module_by_name("Google");
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+    let google_const = uzumibi_module
+        .get_const_by_name("Google")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Google module not found".to_string()))?;
+    let google_mod = match &google_const.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi::Google must be a module".to_string())),
+    };
     let google_obj = RObject::module(google_mod).to_refcount_assigned();
 
     let token_obj = mrb_funcall(vm, Some(google_obj.clone()), "token", &[])?;

@@ -15,17 +15,65 @@ class App < Uzumibi::Router
     res
   end
 
-  post "/data" do |req, res|
-    debug_console("[Uzumibi] Received request at /data")
-    debug_console("[Uzumibi] Body size: #{req.body.size} bytes")
+  get "/users/me" do |req, res|
+    auth = req.cookie["CF_Authorization"]
+    user = Uzumibi::Access.get_identity(auth)
+    hash = {
+      "email" => user.email,
+      "id" => user.user_uuid,
+      "data" => user.raw_data
+    }
+    debug_console("[Uzumibi] Authenticated user: #{hash.inspect}")
+
+    res.return(
+      200,
+      { "Content-Type" => "application/json" },
+      JSON.generate({ "email" => user.email })
+    )
+  end
+
+  get "/rand/:seed" do |req, res|
+    Random.srand(req.params[:seed].to_i) 
+
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Answer = #{rand(100)}\n"
+    res
+  end
+
+  get "/yesno" do |req, res|
+    remote_res = Uzumibi::Fetch.fetch("https://yesno.wtf/api", "GET", "")
+    debug_console("[Uzumibi] Fetched from yesno.wtf: #{remote_res.status_code}")
+    debug_console("[Uzumibi] headers: #{remote_res.headers.inspect}")
 
     res.status_code = 200
     res.headers = {
-      "Content-Type" => "text/plain",
-      "X-Powered-By" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
+      "Content-Type" => "application/json",
     }
-    res.body = "Received data: #{req.params.inspect}\n"
+    res.body = remote_res.body
     res
+  end
+
+  get "/queue/send" do |req, res|
+    Uzumibi::Queue.send("UZUMIBI_QUEUE", "Hello from Uzumibi Queue!")
+    res.status_code = 200
+    res.headers = { "Content-Type" => "text/plain" }
+    res.body = "Sent message to queue\n"
+    res
+  end
+
+  get "/firestore/get" do |req, res|
+    value = Uzumibi::KV.get("hello")
+    res.return(200, { "Content-Type" => "application/json" }, JSON.generate({
+      "result" => value
+    }))
+  end
+
+  get "/firestore/set" do |req, res|
+    Uzumibi::KV.set("hello", "world")
+    res.return(200, { "Content-Type" => "application/json" }, JSON.generate({
+      "result" => "OK"
+    }))
   end
 end
 
