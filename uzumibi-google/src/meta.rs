@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::Deserialize;
 use thiserror::Error;
 
+use crate::http_client::blocking_client;
+
 const METADATA_SERVER_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 const PROJECT_ID_METADATA_URL: &str =
@@ -39,7 +41,7 @@ struct TokenResponse {
 /// - `Ok(String)` containing the access token if successful.
 /// - `Err(GoogleAuthError)` if an error occurs during the request, JSON parsing, or if the token is not found.
 pub fn get_authorization_token_from_metadata() -> Result<String, GoogleAuthError> {
-    let client = reqwest::blocking::Client::new();
+    let client = blocking_client();
     let response = client
         .get(METADATA_SERVER_URL)
         .header("Metadata-Flavor", "Google")
@@ -66,7 +68,7 @@ pub fn get_authorization_token_from_metadata() -> Result<String, GoogleAuthError
 /// - `Ok(String)` containing the project ID if successful.
 /// - `Err(GoogleAuthError)` if an error occurs during the request or if the project ID is not found.
 pub fn get_project_id_from_metadata() -> Result<String, GoogleAuthError> {
-    let client = reqwest::blocking::Client::new();
+    let client = blocking_client();
     let response = client
         .get(PROJECT_ID_METADATA_URL)
         .header("Metadata-Flavor", "Google")

@@ -17,15 +17,26 @@ async fn uzumibi_request(
     #[cfg(feature = "queue")]
     {
         let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
-        match uzumibi::uzumibi_dispatch_queue_message(&body_bytes) {
-            Ok(()) => {
+        let result = tokio::task::spawn_blocking(move || {
+            uzumibi::uzumibi_dispatch_queue_message(&body_bytes).map_err(|e| e.to_string())
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => {
                 let response = Response::builder()
                     .status(200)
                     .body(Full::new(Bytes::from_static(b"ok")))?;
                 return Ok(response);
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 let message = format!("Internal Server Error: {}", e);
+                let response = Response::builder()
+                    .status(500)
+                    .body(Full::new(Bytes::from(message.into_bytes())))?;
+                return Ok(response);
+            }
+            Err(e) => {
+                let message = format!("Internal Server Error: spawn_blocking failed: {}", e);
                 let response = Response::builder()
                     .status(500)
                     .body(Full::new(Bytes::from(message.into_bytes())))?;
@@ -36,21 +47,34 @@ async fn uzumibi_request(
 
     #[cfg(not(feature = "queue"))]
     {
-    let mut uzumibi_request = uzumibi::build_uzumibi_request(&request);
-    // HINT: The body must be collected independently because
-    //       mruby/edge and uzumibi_gem structures are not `Send`.
-    let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
-    uzumibi_request.body = body_bytes;
-    match uzumibi::uzumibi_handle_request(uzumibi_request) {
-        Ok(response) => Ok(response),
-        Err(e) => {
-            let message = format!("Internal Server Error: {}", e);
-            let response = Response::builder()
-                .status(500)
-                .body(Full::new(Bytes::from(message.into_bytes())))?;
-            Ok(response)
+        let mut uzumibi_request = uzumibi::build_uzumibi_request(&request);
+        // HINT: The body must be collected independently because
+        //       mruby/edge and uzumibi_gem structures are not `Send`.
+        let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
+        uzumibi_request.body = body_bytes;
+
+        let result = tokio::task::spawn_blocking(move || {
+            uzumibi::uzumibi_handle_request(uzumibi_request).map_err(|e| e.to_string())
+        })
+        .await;
+
+        match result {
+            Ok(Ok(response)) => Ok(response),
+            Ok(Err(e)) => {
+                let message = format!("Internal Server Error: {}", e);
+                let response = Response::builder()
+                    .status(500)
+                    .body(Full::new(Bytes::from(message.into_bytes())))?;
+                Ok(response)
+            }
+            Err(e) => {
+                let message = format!("Internal Server Error: spawn_blocking failed: {}", e);
+                let response = Response::builder()
+                    .status(500)
+                    .body(Full::new(Bytes::from(message.into_bytes())))?;
+                Ok(response)
+            }
         }
-    }
     }
 }
 

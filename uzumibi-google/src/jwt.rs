@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use thiserror::Error;
 
+use crate::http_client::blocking_client;
+
 const GOOGLE_IAP_ISSUER: &str = "https://cloud.google.com/iap";
 const GOOGLE_IAP_AUDIENCE_PREFIX: &str = "/projects/";
 
@@ -82,7 +84,7 @@ pub fn validate_iap_jwt(token: &str, expected_audience: &str) -> Result<Claims, 
 fn fetch_google_public_keys() -> Result<std::collections::HashMap<String, DecodingKey>, JwtError> {
     // In a real application, you would cache these keys and refresh them periodically.
     // For simplicity, this example fetches them every time.
-    let client = reqwest::blocking::Client::new();
+    let client = blocking_client();
     let res: std::collections::HashMap<String, String> = client
         .get("https://www.gstatic.com/iap/verify/public_key")
         .send()

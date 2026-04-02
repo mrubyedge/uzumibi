@@ -1,5 +1,6 @@
-use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+
+use crate::http_client::blocking_client;
 
 const PUBSUB_BASE_URL: &str = "https://pubsub.googleapis.com/v1";
 
@@ -76,7 +77,7 @@ pub fn publish(
     topic: &str,
     messages: Vec<PubsubMessage>,
 ) -> Result<PublishResponse, String> {
-    let client = Client::new();
+    let client = blocking_client();
     let url = format!(
         "{}/projects/{}/topics/{}:publish",
         PUBSUB_BASE_URL,
@@ -130,7 +131,7 @@ pub fn acknowledge(
     subscription: &str,
     ack_ids: Vec<String>,
 ) -> Result<(), String> {
-    let client = Client::new();
+    let client = blocking_client();
     let url = format!(
         "{}/projects/{}/subscriptions/{}:acknowledge",
         PUBSUB_BASE_URL,
@@ -186,7 +187,7 @@ pub fn modify_ack_deadline(
     ack_ids: Vec<String>,
     ack_deadline_seconds: i32,
 ) -> Result<(), String> {
-    let client = Client::new();
+    let client = blocking_client();
     let url = format!(
         "{}/projects/{}/subscriptions/{}:modifyAckDeadline",
         PUBSUB_BASE_URL,

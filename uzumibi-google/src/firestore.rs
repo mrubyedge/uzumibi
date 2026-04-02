@@ -1,9 +1,9 @@
 use anyhow::Result;
-use reqwest::blocking::Client;
 use serde_json::{Value, json};
 use std::env;
 use thiserror::Error;
 
+use crate::http_client::blocking_client;
 use crate::meta::GoogleAuthError; // Re-use the existing error type
 
 const FIRESTORE_BASE_URL: &str = "https://firestore.googleapis.com/v1/projects";
@@ -68,7 +68,7 @@ pub fn get_document(
     auth_token: &str,
     key: &str,
 ) -> Result<String, FirestoreError> {
-    let client = Client::new();
+    let client = blocking_client();
     let url = get_document_url(project_id, key)?;
 
     let response = client
@@ -128,7 +128,7 @@ pub fn set_document(
     key: &str,
     value: &str,
 ) -> Result<bool, FirestoreError> {
-    let client = Client::new();
+    let client = blocking_client();
     let url = get_document_url(project_id, key)?;
 
     let body = json!({

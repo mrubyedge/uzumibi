@@ -1,4 +1,5 @@
 pub mod firestore;
+mod http_client;
 pub mod jwt;
 pub mod meta;
 pub mod pubsub;
@@ -10,25 +11,22 @@ use base64::Engine;
 use mrubyedge::{
     Error,
     yamrb::{
-        helpers::{
-            mrb_define_class_cmethod, mrb_define_cmethod, mrb_define_module_cmethod, mrb_funcall,
-        },
+        helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
         prelude::hash::{mrb_hash_new, mrb_hash_set_index},
         value::{RObject, RSym, RValue},
         vm::VM,
     },
 };
-use reqwest::blocking::Client;
 
 const TOKEN_IVAR_KEY: &str = "@token";
 const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 
-/// init_google() defines Uzumibi::Google module and Uzumibi::KV class.
+/// init_google() defines Uzumibi::Google class and Uzumibi::KV class.
 ///
 /// ```rbs
 /// @rbs!
 ///   module Uzumibi
-///     module Google
+///     class Google
 ///       def self.fetch_token() -> String
 ///       def self.token() -> String
 ///       def self.token=(value: String) -> String
@@ -71,40 +69,40 @@ pub fn init_google(vm: &mut VM) {
     // Reusing the existing module avoids wiping previously defined constants.
     let uzumibi = vm.get_module_by_name("Uzumibi");
 
-    // Uzumibi::Google module
-    let google_mod = vm.define_module("Google", Some(uzumibi.clone()));
+    // Uzumibi::Google class
+    let google_mod = vm.define_class("Google", None, Some(uzumibi.clone()));
 
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "fetch_token",
         Box::new(uzumibi_google_fetch_token),
     );
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "token",
         Box::new(uzumibi_google_token),
     );
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "token=",
         Box::new(uzumibi_google_set_token),
     );
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "fetch_project_id",
         Box::new(uzumibi_google_fetch_project_id),
     );
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "project_id",
         Box::new(uzumibi_google_project_id),
     );
-    mrb_define_module_cmethod(
+    mrb_define_class_cmethod(
         vm,
         google_mod.clone(),
         "project_id=",
@@ -268,12 +266,16 @@ fn get_google_credentials(vm: &mut VM) -> Result<(String, String), Error> {
     };
     let google_const = uzumibi_module
         .get_const_by_name("Google")
-        .ok_or_else(|| Error::RuntimeError("Uzumibi::Google module not found".to_string()))?;
-    let google_mod = match &google_const.as_ref().value {
-        RValue::Module(m) => m.clone(),
-        _ => return Err(Error::RuntimeError("Uzumibi::Google must be a module".to_string())),
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Google class not found".to_string()))?;
+    let google_class = match &google_const.as_ref().value {
+        RValue::Class(c) => c.clone(),
+        _ => {
+            return Err(Error::RuntimeError(
+                "Uzumibi::Google must be a class".to_string(),
+            ));
+        }
     };
-    let google_obj = RObject::module(google_mod).to_refcount_assigned();
+    let google_obj = RObject::class(google_class, vm);
 
     let token_obj = mrb_funcall(vm, Some(google_obj.clone()), "token", &[])?;
     let token: String = token_obj
@@ -377,7 +379,7 @@ fn uzumibi_fetch_class_fetch(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<ROb
     }
 
     // Make HTTP request
-    let client = Client::new();
+    let client = http_client::blocking_client();
     let mut request = match method.as_str() {
         "GET" => client.get(&url),
         "POST" => client.post(&url),
@@ -640,16 +642,16 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
     } else {
         let google_const = uzumibi_module
             .get_const_by_name("Google")
-            .ok_or_else(|| Error::RuntimeError("Uzumibi::Google module not found".to_string()))?;
-        let google_mod = match &google_const.as_ref().value {
-            RValue::Module(m) => m.clone(),
+            .ok_or_else(|| Error::RuntimeError("Uzumibi::Google class not found".to_string()))?;
+        let google_class = match &google_const.as_ref().value {
+            RValue::Class(c) => c.clone(),
             _ => {
                 return Err(Error::RuntimeError(
-                    "Uzumibi::Google must be a module".to_string(),
+                    "Uzumibi::Google must be a class".to_string(),
                 ));
             }
         };
-        let google_obj = RObject::module(google_mod).to_refcount_assigned();
+        let google_obj = RObject::class(google_class, vm);
         let project_id_obj = mrb_funcall(vm, Some(google_obj), "project_id", &[])?;
         let project_id: String = project_id_obj.as_ref().try_into()?;
         format!("/projects/{}/apps/default", project_id)
