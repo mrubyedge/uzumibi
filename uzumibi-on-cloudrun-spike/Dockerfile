@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY --from=builder \
-     /app/target/release/uzumibi-on-cloudrun-spike \
-     /app/uzumibi-on-cloudrun-spike
+    /app/target/release/uzumibi-on-cloudrun-spike \
+    /app/uzumibi-on-cloudrun-spike
 
 ENV PORT=8080
 
