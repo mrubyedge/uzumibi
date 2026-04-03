@@ -2900,6 +2900,8 @@ dependencies = [
 [[package]]
 name = "uzumibi-cloudflare-ext"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ddeea1462163a42c5d03d90cef8ef7ab33b845b09da9185aa3771dcff24d289"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
@@ -2908,9 +2910,7 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-cloudflare-ext"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ddeea1462163a42c5d03d90cef8ef7ab33b845b09da9185aa3771dcff24d289"
+version = "0.2.1"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
@@ -2941,22 +2941,6 @@ dependencies = [
 [[package]]
 name = "uzumibi-google"
 version = "0.1.0-rc6"
-dependencies = [
- "anyhow",
- "base64",
- "jsonwebtoken",
- "mockito",
- "mrubyedge",
- "mrubyedge-serde-json",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "uzumibi-google"
-version = "0.1.0-rc6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f41da651e6849dbafa440e29ed2064165884e91859badf4e00855cb7d3a3bf9d"
 dependencies = [
@@ -2971,6 +2955,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "uzumibi-google"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "jsonwebtoken",
+ "mockito",
+ "mrubyedge",
+ "mrubyedge-serde-json",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "uzumibi-on-cloudflare-spike"
 version = "0.1.0"
 dependencies = [
@@ -2978,7 +2978,7 @@ dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
  "uzumibi-art-router 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-cloudflare-ext 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-cloudflare-ext 0.2.0",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2993,7 +2993,7 @@ dependencies = [
  "mrubyedge",
  "tokio",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-google 0.1.0-rc6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-google 0.1.0-rc6",
 ]
 
 [[package]]
