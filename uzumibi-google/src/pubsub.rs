@@ -20,6 +20,7 @@ pub struct ReceivedPubsubMessage {
 }
 
 /// Subscriber-side wrapper used for pull responses or normalized internal handling.
+#[cfg(feature = "pubsub-pull")]
 #[derive(Deserialize, Debug)]
 pub struct ReceivedMessage {
     #[serde(rename = "ackId", alias = "ack_id")]
@@ -105,6 +106,7 @@ pub fn publish(
     }
 }
 
+#[cfg(feature = "pubsub-pull")]
 #[derive(Serialize, Debug)]
 pub struct AcknowledgeRequest {
     #[serde(rename = "ackIds")]
@@ -126,6 +128,7 @@ pub struct AcknowledgeRequest {
 /// A `Result` which is:
 /// - `Ok(())` if the operation was successful.
 /// - `Err(String)` if an error occurs.
+#[cfg(feature = "pubsub-pull")]
 pub fn acknowledge(
     access_token: &str,
     subscription: &str,
@@ -158,6 +161,7 @@ pub fn acknowledge(
     }
 }
 
+#[cfg(feature = "pubsub-pull")]
 #[derive(Serialize, Debug)]
 pub struct ModifyAckDeadlineRequest {
     #[serde(rename = "ackIds")]
@@ -181,6 +185,7 @@ pub struct ModifyAckDeadlineRequest {
 /// A `Result` which is:
 /// - `Ok(())` if the operation was successful.
 /// - `Err(String)` if an error occurs.
+#[cfg(feature = "pubsub-pull")]
 pub fn modify_ack_deadline(
     access_token: &str,
     subscription: &str,
@@ -232,6 +237,7 @@ fn get_topic_name(topic_path: &str) -> Result<&str, String> {
         .ok_or_else(|| "Invalid topic path format".to_string())
 }
 
+#[cfg(feature = "pubsub-pull")]
 fn get_project_id_from_subscription(subscription_path: &str) -> Result<&str, String> {
     subscription_path
         .split('/')
@@ -239,6 +245,7 @@ fn get_project_id_from_subscription(subscription_path: &str) -> Result<&str, Str
         .ok_or_else(|| "Invalid subscription path format".to_string())
 }
 
+#[cfg(feature = "pubsub-pull")]
 fn get_subscription_name(subscription_path: &str) -> Result<&str, String> {
     subscription_path
         .split('/')

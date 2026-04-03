@@ -7,6 +7,9 @@ use hyper_util::rt::TokioIo;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
+#[cfg(feature = "queue")]
+use uzumibi_google::QueueDispatchResult;
+
 pub mod uzumibi;
 
 const SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -26,18 +29,25 @@ async fn uzumibi_request(
             String::from_utf8_lossy(&body_bytes)
         );
         let result = tokio::task::spawn_blocking(move || {
-            uzumibi::uzumibi_dispatch_queue_message(&body_bytes).map_err(|e| e.to_string())
+            uzumibi::uzumibi_dispatch_queue_message(&body_bytes)
         })
         .await;
         match result {
-            Ok(Ok(())) => {
+            Ok(QueueDispatchResult::Ack) => {
                 eprintln!("[uzumibi] queue message dispatched successfully");
                 let response = Response::builder()
                     .status(200)
                     .body(Full::new(Bytes::from_static(b"ok")))?;
                 return Ok(response);
             }
-            Ok(Err(e)) => {
+            Ok(QueueDispatchResult::Redeliver) => {
+                eprintln!("[uzumibi] queue message requested redelivery");
+                let response = Response::builder()
+                    .status(500)
+                    .body(Full::new(Bytes::from_static(b"redeliver")))?;
+                return Ok(response);
+            }
+            Ok(QueueDispatchResult::InternalError(e)) => {
                 eprintln!("[uzumibi] queue dispatch error: {}", e);
                 let message = format!("Internal Server Error: {}", e);
                 let response = Response::builder()

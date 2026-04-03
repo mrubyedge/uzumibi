@@ -22,6 +22,15 @@ const TOKEN_IVAR_KEY: &str = "@token";
 const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 const PROJECT_NUMBER_IVAR_KEY: &str = "@project_number";
 const REGION_IVAR_KEY: &str = "@region";
+const QUEUE_ACTION_IVAR_KEY: &str = "@queue_action";
+
+#[cfg(feature = "queue")]
+#[derive(Debug, Clone)]
+pub enum QueueDispatchResult {
+    Ack,
+    Redeliver,
+    InternalError(String),
+}
 
 /// init_google() defines Uzumibi::Google class and Uzumibi::KV class.
 ///
@@ -619,115 +628,31 @@ fn uzumibi_queue_class_send(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObj
 /// Message#ack! -> bool
 fn uzumibi_message_ack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let self_obj = vm.getself()?;
-    let id_obj = self_obj.get_ivar("@id");
-    if matches!(id_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @id".to_string(),
-        ));
-    }
-
-    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
-    let id: String = id.as_ref().try_into()?;
-
-    let (token, _project_id) = get_google_credentials(vm)?;
-
-    // Get subscription from message or use default
-    let subscription_obj = self_obj.get_ivar("@subscription");
-    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @subscription".to_string(),
-        ));
-    } else {
-        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
-        let sub: String = sub.as_ref().try_into()?;
-        sub
-    };
-
-    match pubsub::acknowledge(&token, &subscription, vec![id]) {
-        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
-        Err(e) => Err(Error::RuntimeError(format!("Failed to ack message: {}", e))),
-    }
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("ack".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
 /// Message#nack! -> bool (modifyAckDeadline with 0 seconds)
 fn uzumibi_message_nack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let self_obj = vm.getself()?;
-    let id_obj = self_obj.get_ivar("@id");
-    if matches!(id_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @id".to_string(),
-        ));
-    }
-
-    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
-    let id: String = id.as_ref().try_into()?;
-
-    let (token, _project_id) = get_google_credentials(vm)?;
-
-    let subscription_obj = self_obj.get_ivar("@subscription");
-    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @subscription".to_string(),
-        ));
-    } else {
-        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
-        let sub: String = sub.as_ref().try_into()?;
-        sub
-    };
-
-    match pubsub::modify_ack_deadline(&token, &subscription, vec![id], 0) {
-        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
-        Err(e) => Err(Error::RuntimeError(format!(
-            "Failed to nack message: {}",
-            e
-        ))),
-    }
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("nack".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
 /// Message#retry!(delay_seconds: N) -> bool
 fn uzumibi_message_retry(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     let self_obj = vm.getself()?;
-    let id_obj = self_obj.get_ivar("@id");
-    if matches!(id_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @id".to_string(),
-        ));
-    }
-
-    let id = mrb_funcall(vm, id_obj.into(), "to_s", &[])?;
-    let id: String = id.as_ref().try_into()?;
-
-    let delay_seconds: i32 = match vm.get_kwargs() {
-        Some(kwargs) => match kwargs.get("delay_seconds") {
-            Some(val) => {
-                let v: i64 = val.as_ref().try_into()?;
-                v as i32
-            }
-            None => 0,
-        },
-        None => 0,
-    };
-
-    let (token, _project_id) = get_google_credentials(vm)?;
-
-    let subscription_obj = self_obj.get_ivar("@subscription");
-    let subscription = if matches!(subscription_obj.as_ref().value, RValue::Nil) {
-        return Err(Error::RuntimeError(
-            "Message object does not have @subscription".to_string(),
-        ));
-    } else {
-        let sub = mrb_funcall(vm, subscription_obj.into(), "to_s", &[])?;
-        let sub: String = sub.as_ref().try_into()?;
-        sub
-    };
-
-    match pubsub::modify_ack_deadline(&token, &subscription, vec![id], delay_seconds) {
-        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
-        Err(e) => Err(Error::RuntimeError(format!(
-            "Failed to retry message: {}",
-            e
-        ))),
-    }
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("retry".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
 }
 
 #[cfg(feature = "queue")]
@@ -820,87 +745,125 @@ fn get_default_iap_audience() -> Result<String, Error> {
 ///
 /// Expected body format is Pub/Sub push JSON.
 #[cfg(feature = "queue")]
-pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> Result<(), mrubyedge::Error> {
-    let root: serde_json::Value = serde_json::from_slice(buf).map_err(|e| {
-        mrubyedge::Error::RuntimeError(format!("Failed to parse Pub/Sub push body: {}", e))
-    })?;
+pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> QueueDispatchResult {
+    let result: Result<QueueDispatchResult, mrubyedge::Error> = (|| {
+        let root: serde_json::Value = serde_json::from_slice(buf).map_err(|e| {
+            mrubyedge::Error::RuntimeError(format!("Failed to parse Pub/Sub push body: {}", e))
+        })?;
 
-    let message = root.get("message").ok_or_else(|| {
-        mrubyedge::Error::RuntimeError(
-            "Invalid Pub/Sub push body: missing `message` object".to_string(),
-        )
-    })?;
+        let message = root.get("message").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError(
+                "Invalid Pub/Sub push body: missing `message` object".to_string(),
+            )
+        })?;
 
-    let id = message
-        .get("messageId")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-    let timestamp = message
-        .get("publishTime")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-    let subscription = root
-        .get("subscription")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-    let attempts = root
-        .get("deliveryAttempt")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(-1);
+        let id = message
+            .get("messageId")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let timestamp = message
+            .get("publishTime")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let subscription = root
+            .get("subscription")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let attempts = root
+            .get("deliveryAttempt")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(-1);
 
-    let raw_data = message
-        .get("data")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
-    let body = match base64::engine::general_purpose::STANDARD.decode(raw_data.as_bytes()) {
-        Ok(decoded) => String::from_utf8(decoded).map_err(|e| {
-            mrubyedge::Error::RuntimeError(format!("Failed to decode Pub/Sub data as UTF-8: {}", e))
-        })?,
-        Err(_) => raw_data,
-    };
+        let raw_data = message
+            .get("data")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let body = match base64::engine::general_purpose::STANDARD.decode(raw_data.as_bytes()) {
+            Ok(decoded) => String::from_utf8(decoded).map_err(|e| {
+                mrubyedge::Error::RuntimeError(format!(
+                    "Failed to decode Pub/Sub data as UTF-8: {}",
+                    e
+                ))
+            })?,
+            Err(_) => raw_data,
+        };
 
-    // Create Uzumibi::Message instance
-    let uzumibi = vm
-        .get_const_by_name("Uzumibi")
-        .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
-    let uzumibi_module = match &uzumibi.as_ref().value {
-        RValue::Module(m) => m.clone(),
-        _ => {
-            return Err(mrubyedge::Error::RuntimeError(
-                "Uzumibi must be a module".to_string(),
-            ));
+        // Create Uzumibi::Message instance
+        let uzumibi = vm.get_const_by_name("Uzumibi").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string())
+        })?;
+        let uzumibi_module = match &uzumibi.as_ref().value {
+            RValue::Module(m) => m.clone(),
+            _ => {
+                return Err(mrubyedge::Error::RuntimeError(
+                    "Uzumibi must be a module".to_string(),
+                ));
+            }
+        };
+        let message_class = uzumibi_module.get_const_by_name("Message").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
+        })?;
+        let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
+
+        message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
+        message.set_ivar(
+            "@timestamp",
+            RObject::string(timestamp).to_refcount_assigned(),
+        );
+        message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
+        message.set_ivar(
+            "@attempts",
+            RObject::integer(attempts).to_refcount_assigned(),
+        );
+        message.set_ivar(
+            "@subscription",
+            RObject::string(subscription).to_refcount_assigned(),
+        );
+
+        // Call $CONSUMER.on_receive(message)
+        let consumer = vm.globals.get("$CONSUMER").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("$CONSUMER is not defined".to_string())
+        })?;
+        mrb_funcall(
+            vm,
+            consumer.clone().into(),
+            "on_receive",
+            &[message.clone()],
+        )?;
+
+        let queue_action_obj = message.get_ivar(QUEUE_ACTION_IVAR_KEY);
+        if matches!(queue_action_obj.as_ref().value, RValue::Nil) {
+            return Ok(QueueDispatchResult::Ack);
         }
-    };
-    let message_class = uzumibi_module.get_const_by_name("Message").ok_or_else(|| {
-        mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
-    })?;
-    let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
 
-    message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
-    message.set_ivar(
-        "@timestamp",
-        RObject::string(timestamp).to_refcount_assigned(),
-    );
-    message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
-    message.set_ivar(
-        "@attempts",
-        RObject::integer(attempts).to_refcount_assigned(),
-    );
-    message.set_ivar(
-        "@subscription",
-        RObject::string(subscription).to_refcount_assigned(),
-    );
+        let ack_sym = RObject::symbol(RSym::new("ack".to_string())).to_refcount_assigned();
+        let nack_sym = RObject::symbol(RSym::new("nack".to_string())).to_refcount_assigned();
+        let retry_sym = RObject::symbol(RSym::new("retry".to_string())).to_refcount_assigned();
 
-    // Call $CONSUMER.on_receive(message)
-    let consumer = vm
-        .globals
-        .get("$CONSUMER")
-        .ok_or_else(|| mrubyedge::Error::RuntimeError("$CONSUMER is not defined".to_string()))?;
-    mrb_funcall(vm, consumer.clone().into(), "on_receive", &[message])?;
+        let is_ack = mrb_funcall(vm, Some(queue_action_obj.clone()), "==", &[ack_sym])?;
+        if !is_ack.is_falsy() {
+            return Ok(QueueDispatchResult::Ack);
+        }
 
-    Ok(())
+        let is_nack = mrb_funcall(vm, Some(queue_action_obj.clone()), "==", &[nack_sym])?;
+        if !is_nack.is_falsy() {
+            return Ok(QueueDispatchResult::Redeliver);
+        }
+
+        let is_retry = mrb_funcall(vm, Some(queue_action_obj), "==", &[retry_sym])?;
+        if !is_retry.is_falsy() {
+            return Ok(QueueDispatchResult::Redeliver);
+        }
+
+        Ok(QueueDispatchResult::Ack)
+    })();
+
+    match result {
+        Ok(r) => r,
+        Err(e) => QueueDispatchResult::InternalError(e.to_string()),
+    }
 }

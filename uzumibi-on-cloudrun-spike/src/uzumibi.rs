@@ -67,9 +67,11 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
 }
 
 #[cfg(feature = "queue")]
-pub(crate) fn uzumibi_dispatch_queue_message(buf: &[u8]) -> Result<(), mrubyedge::Error> {
-    let mut vm = init_vm()?;
-    uzumibi_google::dispatch_queue_message(&mut vm, buf)
+pub(crate) fn uzumibi_dispatch_queue_message(buf: &[u8]) -> uzumibi_google::QueueDispatchResult {
+    match init_vm() {
+        Ok(mut vm) => uzumibi_google::dispatch_queue_message(&mut vm, buf),
+        Err(e) => uzumibi_google::QueueDispatchResult::InternalError(e.to_string()),
+    }
 }
 
 #[cfg(not(feature = "queue"))]

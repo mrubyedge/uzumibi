@@ -1,6 +1,6 @@
 [package]
 name = "uzumibi-google"
-version = "0.1.0-rc8"
+version = "0.1.0-rc9"
 edition = "2024"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 description = "Google Cloud extension for Uzumibi (Cloud Run metadata, Firestore, Pub/Sub, IAP JWT)"
@@ -12,6 +12,7 @@ readme = "../README.md"
 default = []
 queue = []
 iap-identity = ["dep:jsonwebtoken"]
+pubsub-pull = []
 
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking", "json"] }
