@@ -17,18 +17,28 @@ async fn uzumibi_request(
     #[cfg(feature = "queue")]
     {
         let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
+        eprintln!(
+            "[uzumibi] queue message received, body size={}",
+            body_bytes.len()
+        );
+        eprintln!(
+            "[uzumibi] queue body: {}",
+            String::from_utf8_lossy(&body_bytes)
+        );
         let result = tokio::task::spawn_blocking(move || {
             uzumibi::uzumibi_dispatch_queue_message(&body_bytes).map_err(|e| e.to_string())
         })
         .await;
         match result {
             Ok(Ok(())) => {
+                eprintln!("[uzumibi] queue message dispatched successfully");
                 let response = Response::builder()
                     .status(200)
                     .body(Full::new(Bytes::from_static(b"ok")))?;
                 return Ok(response);
             }
             Ok(Err(e)) => {
+                eprintln!("[uzumibi] queue dispatch error: {}", e);
                 let message = format!("Internal Server Error: {}", e);
                 let response = Response::builder()
                     .status(500)
@@ -36,6 +46,7 @@ async fn uzumibi_request(
                 return Ok(response);
             }
             Err(e) => {
+                eprintln!("[uzumibi] spawn_blocking failed: {}", e);
                 let message = format!("Internal Server Error: spawn_blocking failed: {}", e);
                 let response = Response::builder()
                     .status(500)
@@ -48,6 +59,10 @@ async fn uzumibi_request(
     #[cfg(not(feature = "queue"))]
     {
         let mut uzumibi_request = uzumibi::build_uzumibi_request(&request);
+        eprintln!(
+            "[uzumibi] {} {}",
+            uzumibi_request.method, uzumibi_request.path
+        );
         // HINT: The body must be collected independently because
         //       mruby/edge and uzumibi_gem structures are not `Send`.
         let body_bytes: Vec<u8> = request.into_body().collect().await?.to_bytes().to_vec();
@@ -61,6 +76,7 @@ async fn uzumibi_request(
         match result {
             Ok(Ok(response)) => Ok(response),
             Ok(Err(e)) => {
+                eprintln!("[uzumibi] request error: {}", e);
                 let message = format!("Internal Server Error: {}", e);
                 let response = Response::builder()
                     .status(500)
@@ -68,6 +84,7 @@ async fn uzumibi_request(
                 Ok(response)
             }
             Err(e) => {
+                eprintln!("[uzumibi] spawn_blocking failed: {}", e);
                 let message = format!("Internal Server Error: spawn_blocking failed: {}", e);
                 let response = Response::builder()
                     .status(500)
@@ -89,6 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let graceful = hyper_util::server::graceful::GracefulShutdown::new();
 
     let listener = TcpListener::bind(addr).await?;
+    eprintln!("[uzumibi] listening on http://{}", addr);
     println!("listening on http://{}", addr);
 
     loop {

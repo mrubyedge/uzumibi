@@ -1,5 +1,6 @@
 pub mod firestore;
 mod http_client;
+#[cfg(feature = "iap-identity")]
 pub mod jwt;
 pub mod meta;
 pub mod pubsub;
@@ -210,26 +211,29 @@ pub fn init_google(vm: &mut VM) {
         );
     }
 
-    // Uzumibi::Access class
-    let access_class = vm.define_class("Access", None, Some(uzumibi.clone()));
-    mrb_define_class_cmethod(
-        vm,
-        access_class,
-        "get_identity",
-        Box::new(uzumibi_access_get_identity),
-    );
-
-    // Uzumibi::Identity class
-    let identity_class = vm.define_class("Identity", None, Some(uzumibi));
-    let identity_class_obj = RObject::class(identity_class, vm);
-    for attr in ["user_uuid", "email", "raw_data"] {
-        mrb_funcall(
+    #[cfg(feature = "iap-identity")]
+    {
+        // Uzumibi::Access class
+        let access_class = vm.define_class("Access", None, Some(uzumibi.clone()));
+        mrb_define_class_cmethod(
             vm,
-            Some(identity_class_obj.clone()),
-            "attr_accessor",
-            &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
-        )
-        .expect("attr_accessor failed");
+            access_class,
+            "get_identity",
+            Box::new(uzumibi_access_get_identity),
+        );
+
+        // Uzumibi::Identity class
+        let identity_class = vm.define_class("Identity", None, Some(uzumibi));
+        let identity_class_obj = RObject::class(identity_class, vm);
+        for attr in ["user_uuid", "email", "raw_data"] {
+            mrb_funcall(
+                vm,
+                Some(identity_class_obj.clone()),
+                "attr_accessor",
+                &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+            )
+            .expect("attr_accessor failed");
+        }
     }
 }
 
@@ -734,6 +738,7 @@ fn uzumibi_consumer_on_receive(_vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc
 
 // --- Uzumibi::Access methods ---
 
+#[cfg(feature = "iap-identity")]
 /// Access.get_identity(jwt_token) -> Identity
 fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
     if args.is_empty() {
@@ -790,6 +795,7 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
     Ok(identity)
 }
 
+#[cfg(feature = "iap-identity")]
 fn get_default_iap_audience() -> Result<String, Error> {
     let project_number = std::env::var("GOOGLE_CLOUD_PROJECT_NUMBER")
         .or_else(|_| std::env::var("GCP_PROJECT_NUMBER"))
@@ -814,16 +820,41 @@ fn get_default_iap_audience() -> Result<String, Error> {
 /// Expected body format is Pub/Sub push JSON.
 #[cfg(feature = "queue")]
 pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> Result<(), mrubyedge::Error> {
-    let push: pubsub::PushRequestBody = serde_json::from_slice(buf).map_err(|e| {
+    let root: serde_json::Value = serde_json::from_slice(buf).map_err(|e| {
         mrubyedge::Error::RuntimeError(format!("Failed to parse Pub/Sub push body: {}", e))
     })?;
 
-    let id = push.message.message_id.unwrap_or_default();
-    let timestamp = push.message.publish_time.unwrap_or_default();
-    let subscription = push.subscription.unwrap_or_default();
-    let attempts = push.delivery_attempt.unwrap_or(1) as i64;
+    let message = root.get("message").ok_or_else(|| {
+        mrubyedge::Error::RuntimeError(
+            "Invalid Pub/Sub push body: missing `message` object".to_string(),
+        )
+    })?;
 
-    let raw_data = push.message.data.unwrap_or_default();
+    let id = message
+        .get("messageId")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let timestamp = message
+        .get("publishTime")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let subscription = root
+        .get("subscription")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let attempts = root
+        .get("deliveryAttempt")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(-1);
+
+    let raw_data = message
+        .get("data")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     let body = match base64::engine::general_purpose::STANDARD.decode(raw_data.as_bytes()) {
         Ok(decoded) => String::from_utf8(decoded).map_err(|e| {
             mrubyedge::Error::RuntimeError(format!("Failed to decode Pub/Sub data as UTF-8: {}", e))
