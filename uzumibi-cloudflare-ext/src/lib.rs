@@ -551,7 +551,7 @@ fn uzumibi_access_set_team(
     Ok(args[0].clone())
 }
 
-/// Access.get_identity(cf_authorization_token) -> AccessIdentity
+/// Access.get_identity(cf_authorization_token) -> Identity
 #[cfg(feature = "enable-external")]
 fn uzumibi_access_get_identity(
     vm: &mut VM,
@@ -592,7 +592,7 @@ fn uzumibi_access_get_identity(
     let body_robj = RObject::string(body).to_refcount_assigned();
     let json_value = mrubyedge_serde_json::mrb_json_class_load(vm, &[body_robj])?;
 
-    // Create AccessIdentity and set fields from parsed JSON hash
+    // Create Identity and set fields from parsed JSON hash
     let uzumibi = vm
         .get_const_by_name("Uzumibi")
         .ok_or_else(|| mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string()))?;
@@ -605,9 +605,9 @@ fn uzumibi_access_get_identity(
         }
     };
     let identity_class = uzumibi_module
-        .get_const_by_name("AccessIdentity")
+        .get_const_by_name("Identity")
         .ok_or_else(|| {
-            mrubyedge::Error::RuntimeError("Uzumibi::AccessIdentity class not found".to_string())
+            mrubyedge::Error::RuntimeError("Uzumibi::Identity class not found".to_string())
         })?;
     let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
 
@@ -697,8 +697,8 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
             Box::new(uzumibi_access_get_identity),
         );
 
-        // Uzumibi::AccessIdentity with attr_accessor for common fields
-        let identity_class = vm.define_class("AccessIdentity", None, Some(uzumibi_module));
+        // Uzumibi::Identity with attr_accessor for common fields
+        let identity_class = vm.define_class("Identity", None, Some(uzumibi_module));
         let identity_class_obj = RObject::class(identity_class, vm);
         for attr in ["user_uuid", "email", "raw_data"] {
             mrb_funcall(
