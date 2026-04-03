@@ -10,6 +10,8 @@ const PROJECT_ID_METADATA_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/project/project-id";
 const PROJECT_NUMBER_METADATA_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id";
+const INSTANCE_REGION_METADATA_URL: &str =
+    "http://metadata.google.internal/computeMetadata/v1/instance/region";
 
 #[derive(Error, Debug)]
 pub enum GoogleAuthError {
@@ -25,6 +27,8 @@ pub enum GoogleAuthError {
     ProjectIdNotFound,
     #[error("Project number not found in response")]
     ProjectNumberNotFound,
+    #[error("Region not found in response")]
+    RegionNotFound,
 }
 
 #[derive(Deserialize, Debug)]
@@ -106,6 +110,36 @@ pub fn get_project_number_from_metadata() -> Result<String, GoogleAuthError> {
     }
 
     Ok(project_number)
+}
+
+/// Obtains the region from metadata server.
+///
+/// Metadata endpoint returns a value like:
+/// "projects/123456789/regions/asia-northeast1"
+/// This function extracts and returns only the final region segment.
+pub fn get_region_from_metadata() -> Result<String, GoogleAuthError> {
+    let client = blocking_client();
+    let response = client
+        .get(INSTANCE_REGION_METADATA_URL)
+        .header("Metadata-Flavor", "Google")
+        .send()?
+        .error_for_status()?;
+
+    let full_region = response.text()?;
+    if full_region.is_empty() {
+        return Err(GoogleAuthError::RegionNotFound);
+    }
+
+    let region = full_region
+        .rsplit('/')
+        .next()
+        .ok_or_else(|| GoogleAuthError::InvalidMetadataResponse(full_region.clone()))?;
+
+    if region.is_empty() {
+        return Err(GoogleAuthError::RegionNotFound);
+    }
+
+    Ok(region.to_string())
 }
 
 #[cfg(test)]

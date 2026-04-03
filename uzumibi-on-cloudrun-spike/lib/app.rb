@@ -26,7 +26,6 @@ class App < Uzumibi::Router
       hash = {
         "email" => user.email,
         "id" => user.user_uuid,
-        "data" => user.raw_data
       }
       debug_console("[Uzumibi] Authenticated user: #{hash.inspect}")
 

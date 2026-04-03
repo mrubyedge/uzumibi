@@ -19,6 +19,8 @@ use mrubyedge::{
 
 const TOKEN_IVAR_KEY: &str = "@token";
 const PROJECT_ID_IVAR_KEY: &str = "@project_id";
+const PROJECT_NUMBER_IVAR_KEY: &str = "@project_number";
+const REGION_IVAR_KEY: &str = "@region";
 
 /// init_google() defines Uzumibi::Google class and Uzumibi::KV class.
 ///
@@ -32,6 +34,12 @@ const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 ///       def self.fetch_project_id() -> String
 ///       def self.project_id() -> String
 ///       def self.project_id=(value: String) -> String
+///       def self.fetch_project_number() -> String
+///       def self.project_number() -> String
+///       def self.project_number=(value: String) -> String
+///       def self.fetch_region() -> String
+///       def self.region() -> String
+///       def self.region=(value: String) -> String
 ///     end
 ///     class KV
 ///       def self.get(key: String) -> String?
@@ -60,6 +68,7 @@ const PROJECT_ID_IVAR_KEY: &str = "@project_id";
 ///     class Identity
 ///       attr_accessor user_uuid: String
 ///       attr_accessor email: String
+///       attr_accessor raw_data: String
 ///     end
 ///   end
 /// ```
@@ -106,6 +115,42 @@ pub fn init_google(vm: &mut VM) {
         google_mod.clone(),
         "project_id=",
         Box::new(uzumibi_google_set_project_id),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_project_number",
+        Box::new(uzumibi_google_fetch_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_number",
+        Box::new(uzumibi_google_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_number=",
+        Box::new(uzumibi_google_set_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_region",
+        Box::new(uzumibi_google_fetch_region),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "region",
+        Box::new(uzumibi_google_region),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "region=",
+        Box::new(uzumibi_google_set_region),
     );
 
     // Uzumibi::KV class
@@ -177,7 +222,7 @@ pub fn init_google(vm: &mut VM) {
     // Uzumibi::Identity class
     let identity_class = vm.define_class("Identity", None, Some(uzumibi));
     let identity_class_obj = RObject::class(identity_class, vm);
-    for attr in ["user_uuid", "email"] {
+    for attr in ["user_uuid", "email", "raw_data"] {
         mrb_funcall(
             vm,
             Some(identity_class_obj.clone()),
@@ -250,6 +295,72 @@ fn uzumibi_google_set_project_id(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc
     }
     let klass = vm.getself()?;
     klass.set_ivar(PROJECT_ID_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+fn uzumibi_google_fetch_project_number(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    let project_number = meta::get_project_number_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch project_number: {}", e)))?;
+
+    let project_number_obj = RObject::string(project_number).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_NUMBER_IVAR_KEY, project_number_obj.clone());
+    Ok(project_number_obj)
+}
+
+fn uzumibi_google_project_number(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let project_number = klass.get_ivar(PROJECT_NUMBER_IVAR_KEY);
+    if project_number.is_falsy() {
+        return uzumibi_google_fetch_project_number(vm, _args);
+    }
+    Ok(project_number)
+}
+
+fn uzumibi_google_set_project_number(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_NUMBER_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+fn uzumibi_google_fetch_region(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let region = meta::get_region_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch region: {}", e)))?;
+
+    let region_obj = RObject::string(region).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(REGION_IVAR_KEY, region_obj.clone());
+    Ok(region_obj)
+}
+
+fn uzumibi_google_region(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let region = klass.get_ivar(REGION_IVAR_KEY);
+    if region.is_falsy() {
+        return uzumibi_google_fetch_region(vm, _args);
+    }
+    Ok(region)
+}
+
+fn uzumibi_google_set_region(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(REGION_IVAR_KEY, args[0].clone());
     Ok(args[0].clone())
 }
 
@@ -660,6 +771,8 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
         .ok_or_else(|| Error::RuntimeError("Uzumibi::Identity class not found".to_string()))?;
 
     let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
+    let raw_data = serde_json::to_string(&claims)
+        .map_err(|e| Error::RuntimeError(format!("Failed to serialize identity claims: {}", e)))?;
 
     identity.set_ivar(
         "@user_uuid",
@@ -668,6 +781,10 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
     identity.set_ivar(
         "@email",
         RObject::string(claims.email).to_refcount_assigned(),
+    );
+    identity.set_ivar(
+        "@raw_data",
+        RObject::string(raw_data).to_refcount_assigned(),
     );
 
     Ok(identity)
@@ -678,9 +795,11 @@ fn get_default_iap_audience() -> Result<String, Error> {
         .or_else(|_| std::env::var("GCP_PROJECT_NUMBER"))
         .or_else(|_| meta::get_project_number_from_metadata())
         .map_err(|e| Error::RuntimeError(format!("Failed to determine project number: {}", e)))?;
-    // Fetch region and service name from environment variables (set by Cloud Run) to construct the audience.
+    // Fetch region and service name from Cloud Run env vars when available.
+    // K_REGION may be absent in some environments, so fallback to metadata server.
     let region = std::env::var("K_REGION")
-        .map_err(|_| Error::RuntimeError("K_REGION is not set".to_string()))?;
+        .or_else(|_| meta::get_region_from_metadata())
+        .map_err(|e| Error::RuntimeError(format!("Failed to determine region: {}", e)))?;
     let service_name = std::env::var("K_SERVICE")
         .map_err(|_| Error::RuntimeError("K_SERVICE is not set".to_string()))?;
 
