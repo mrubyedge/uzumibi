@@ -5,6 +5,9 @@ use hyper::service::service_fn;
 use hyper::{Request, Response, body::Incoming as IncomingBody};
 use hyper_util::rt::TokioIo;
 use std::net::SocketAddr;
+use time::OffsetDateTime;
+use time::format_description::BorrowedFormatItem;
+use time::macros::format_description;
 use tokio::net::TcpListener;
 
 #[cfg(feature = "queue")]
@@ -13,6 +16,20 @@ use uzumibi_google::QueueDispatchResult;
 pub mod uzumibi;
 
 const SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const NGINX_TIME_FORMAT: &[BorrowedFormatItem<'static>] = format_description!(
+    "[day]/[month repr:short]/[year]:[hour]:[minute]:[second] [offset_hour sign:mandatory][offset_minute]"
+);
+
+fn now_for_nginx_log() -> String {
+    if let Ok(now) = OffsetDateTime::now_local() {
+        return now
+            .format(NGINX_TIME_FORMAT)
+            .unwrap_or_else(|_| "-".to_string());
+    }
+    OffsetDateTime::now_utc()
+        .format(NGINX_TIME_FORMAT)
+        .unwrap_or_else(|_| "-".to_string())
+}
 
 async fn uzumibi_request(
     request: Request<IncomingBody>,
@@ -47,15 +64,10 @@ async fn uzumibi_request(
             .status(status_code)
             .body(Full::new(body_bytes))?;
 
-        let now = chrono::Local::now();
+        let now = now_for_nginx_log();
         eprintln!(
             "- - - [{}] \"{} {} {:?}\" {} {}",
-            now.format("%d/%b/%Y:%H:%M:%S %z"),
-            method,
-            uri,
-            version,
-            status_code,
-            body_size
+            now, method, uri, version, status_code, body_size
         );
 
         Ok(response)
@@ -116,15 +128,10 @@ async fn uzumibi_request(
             .exact()
             .map(|size| size.to_string())
             .unwrap_or("-".to_string());
-        let now = chrono::Local::now();
+        let now = now_for_nginx_log();
         eprintln!(
             "- - - [{}] \"{} {} {:?}\" {} {}",
-            now.format("%d/%b/%Y:%H:%M:%S %z"),
-            method,
-            uri,
-            version,
-            status_code,
-            hinted_size
+            now, method, uri, version, status_code, hinted_size
         );
         let response = Response::from_parts(parts, body_full);
         Ok(response)
