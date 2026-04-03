@@ -8,6 +8,8 @@ const METADATA_SERVER_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 const PROJECT_ID_METADATA_URL: &str =
     "http://metadata.google.internal/computeMetadata/v1/project/project-id";
+const PROJECT_NUMBER_METADATA_URL: &str =
+    "http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id";
 
 #[derive(Error, Debug)]
 pub enum GoogleAuthError {
@@ -21,12 +23,16 @@ pub enum GoogleAuthError {
     InvalidMetadataResponse(String),
     #[error("Project ID not found in response")]
     ProjectIdNotFound,
+    #[error("Project number not found in response")]
+    ProjectNumberNotFound,
 }
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
     access_token: String,
+    #[allow(unused)]
     expires_in: u32,
+    #[allow(unused)]
     token_type: String,
 }
 
@@ -82,6 +88,24 @@ pub fn get_project_id_from_metadata() -> Result<String, GoogleAuthError> {
     }
 
     Ok(project_id)
+}
+
+/// Obtains the Google Cloud numeric project ID from the metadata server.
+pub fn get_project_number_from_metadata() -> Result<String, GoogleAuthError> {
+    let client = blocking_client();
+    let response = client
+        .get(PROJECT_NUMBER_METADATA_URL)
+        .header("Metadata-Flavor", "Google")
+        .send()?
+        .error_for_status()?;
+
+    let project_number = response.text()?;
+
+    if project_number.is_empty() {
+        return Err(GoogleAuthError::ProjectNumberNotFound);
+    }
+
+    Ok(project_number)
 }
 
 #[cfg(test)]

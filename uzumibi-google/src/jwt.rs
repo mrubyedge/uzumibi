@@ -168,3 +168,47 @@ fn matches_algorithm(key_alg: KeyAlgorithm, token_alg: Algorithm) -> bool {
             | (KeyAlgorithm::UNKNOWN_ALGORITHM, _)
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::Engine;
+    const TEST_IAP_TOKEN_ENV: &str = "UZUMIBI_GOOGLE_IAP_TEST_TOKEN";
+    const TEST_IAP_AUDIENCE_ENV: &str = "UZUMIBI_GOOGLE_IAP_TEST_AUDIENCE";
+
+    #[derive(Deserialize)]
+    struct PartialClaims {
+        aud: String,
+    }
+
+    fn test_iap_credentials() -> (String, String) {
+        let token = std::env::var(TEST_IAP_TOKEN_ENV)
+            .unwrap_or_else(|_| panic!("{} must be set to run this test", TEST_IAP_TOKEN_ENV));
+        let audience = std::env::var(TEST_IAP_AUDIENCE_ENV)
+            .unwrap_or_else(|_| panic!("{} must be set to run this test", TEST_IAP_AUDIENCE_ENV));
+
+        (token, audience)
+    }
+
+    #[test]
+    #[ignore = "requires UZUMIBI_GOOGLE_IAP_TEST_TOKEN and UZUMIBI_GOOGLE_IAP_TEST_AUDIENCE"]
+    fn extracts_expected_audience_from_env_token() {
+        let (token, expected_audience) = test_iap_credentials();
+        let payload = token.split('.').nth(1).expect("payload missing");
+        let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(payload)
+            .expect("payload decode failed");
+        let claims: PartialClaims = serde_json::from_slice(&decoded).expect("claims parse failed");
+
+        assert_eq!(claims.aud, expected_audience);
+    }
+
+    #[test]
+    #[ignore = "requires UZUMIBI_GOOGLE_IAP_TEST_TOKEN and UZUMIBI_GOOGLE_IAP_TEST_AUDIENCE"]
+    fn validates_env_token_against_configured_audience() {
+        let (token, expected_audience) = test_iap_credentials();
+        let claims =
+            validate_iap_jwt(&token, &expected_audience).expect("configured token should validate");
+        assert_eq!(claims.aud, expected_audience);
+    }
+}

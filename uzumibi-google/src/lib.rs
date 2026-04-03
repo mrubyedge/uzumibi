@@ -648,21 +648,7 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
         let aud: String = aud.as_ref().try_into()?;
         aud
     } else {
-        let google_const = uzumibi_module
-            .get_const_by_name("Google")
-            .ok_or_else(|| Error::RuntimeError("Uzumibi::Google class not found".to_string()))?;
-        let google_class = match &google_const.as_ref().value {
-            RValue::Class(c) => c.clone(),
-            _ => {
-                return Err(Error::RuntimeError(
-                    "Uzumibi::Google must be a class".to_string(),
-                ));
-            }
-        };
-        let google_obj = RObject::class(google_class, vm);
-        let project_id_obj = mrb_funcall(vm, Some(google_obj), "project_id", &[])?;
-        let project_id: String = project_id_obj.as_ref().try_into()?;
-        format!("/projects/{}/apps/default", project_id)
+        get_default_iap_audience()?
     };
 
     let claims = jwt::validate_iap_jwt(&token, &expected_audience)
@@ -685,6 +671,23 @@ fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<R
     );
 
     Ok(identity)
+}
+
+fn get_default_iap_audience() -> Result<String, Error> {
+    let project_number = std::env::var("GOOGLE_CLOUD_PROJECT_NUMBER")
+        .or_else(|_| std::env::var("GCP_PROJECT_NUMBER"))
+        .or_else(|_| meta::get_project_number_from_metadata())
+        .map_err(|e| Error::RuntimeError(format!("Failed to determine project number: {}", e)))?;
+    // Fetch region and service name from environment variables (set by Cloud Run) to construct the audience.
+    let region = std::env::var("K_REGION")
+        .map_err(|_| Error::RuntimeError("K_REGION is not set".to_string()))?;
+    let service_name = std::env::var("K_SERVICE")
+        .map_err(|_| Error::RuntimeError("K_SERVICE is not set".to_string()))?;
+
+    Ok(format!(
+        "/projects/{}/locations/{}/services/{}",
+        project_number, region, service_name
+    ))
 }
 
 /// Unpack a queue message from Cloud Run Pub/Sub push body and call `$CONSUMER.on_receive(message)`.
