@@ -4,8 +4,7 @@ class Consumer < Uzumibi::Consumer
     debug_console("[Uzumibi::Queue] Message data: #{message.body.inspect}")
     if message.attempts < 3
       debug_console("[Uzumibi::Queue] Simulating failure for message id=#{message.id}")
-      raise "Simulated processing failure for message id=#{message.id}"
-      message.retry(delay_seconds: 3)
+      message.nack!
     else
       debug_console("[Uzumibi::Queue] Processing succeeded for message id=#{message.id} after #{message.attempts} attempts")
       message.ack!

@@ -836,30 +836,17 @@ pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> QueueDispatchResult {
         )?;
 
         let queue_action_obj = message.get_ivar(QUEUE_ACTION_IVAR_KEY);
-        if matches!(queue_action_obj.as_ref().value, RValue::Nil) {
-            return Ok(QueueDispatchResult::Ack);
-        }
+        let result = match &queue_action_obj.as_ref().value {
+            RValue::Symbol(sym) => match sym.name.as_str() {
+                "ack" => QueueDispatchResult::Ack,
+                "nack" | "retry" => QueueDispatchResult::Redeliver,
+                _ => QueueDispatchResult::InternalError("Unknown queue action".to_string()),
+            },
+            RValue::Nil => QueueDispatchResult::Ack,
+            _ => QueueDispatchResult::InternalError("Invalid queue action type".to_string()),
+        };
 
-        let ack_sym = RObject::symbol(RSym::new("ack".to_string())).to_refcount_assigned();
-        let nack_sym = RObject::symbol(RSym::new("nack".to_string())).to_refcount_assigned();
-        let retry_sym = RObject::symbol(RSym::new("retry".to_string())).to_refcount_assigned();
-
-        let is_ack = mrb_funcall(vm, Some(queue_action_obj.clone()), "==", &[ack_sym])?;
-        if !is_ack.is_falsy() {
-            return Ok(QueueDispatchResult::Ack);
-        }
-
-        let is_nack = mrb_funcall(vm, Some(queue_action_obj.clone()), "==", &[nack_sym])?;
-        if !is_nack.is_falsy() {
-            return Ok(QueueDispatchResult::Redeliver);
-        }
-
-        let is_retry = mrb_funcall(vm, Some(queue_action_obj), "==", &[retry_sym])?;
-        if !is_retry.is_falsy() {
-            return Ok(QueueDispatchResult::Redeliver);
-        }
-
-        Ok(QueueDispatchResult::Ack)
+        Ok(result)
     })();
 
     match result {

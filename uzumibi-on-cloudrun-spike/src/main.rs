@@ -38,14 +38,14 @@ async fn uzumibi_request(
                 let response = Response::builder()
                     .status(200)
                     .body(Full::new(Bytes::from_static(b"ok")))?;
-                return Ok(response);
+                Ok(response)
             }
             Ok(QueueDispatchResult::Redeliver) => {
                 eprintln!("[uzumibi] queue message requested redelivery");
                 let response = Response::builder()
                     .status(500)
                     .body(Full::new(Bytes::from_static(b"redeliver")))?;
-                return Ok(response);
+                Ok(response)
             }
             Ok(QueueDispatchResult::InternalError(e)) => {
                 eprintln!("[uzumibi] queue dispatch error: {}", e);
@@ -53,7 +53,7 @@ async fn uzumibi_request(
                 let response = Response::builder()
                     .status(500)
                     .body(Full::new(Bytes::from(message.into_bytes())))?;
-                return Ok(response);
+                Ok(response)
             }
             Err(e) => {
                 eprintln!("[uzumibi] spawn_blocking failed: {}", e);
@@ -61,7 +61,7 @@ async fn uzumibi_request(
                 let response = Response::builder()
                     .status(500)
                     .body(Full::new(Bytes::from(message.into_bytes())))?;
-                return Ok(response);
+                Ok(response)
             }
         }
     }

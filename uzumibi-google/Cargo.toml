@@ -1,6 +1,6 @@
 [package]
 name = "uzumibi-google"
-version = "0.1.0-rc9"
+version = "0.1.0"
 edition = "2024"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 description = "Google Cloud extension for Uzumibi (Cloud Run metadata, Firestore, Pub/Sub, IAP JWT)"
