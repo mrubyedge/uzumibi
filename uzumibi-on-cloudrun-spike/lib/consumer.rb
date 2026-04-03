@@ -1,7 +1,7 @@
 class Consumer < Uzumibi::Consumer
   def on_receive(message)
-    debug_console("[Uzumibi::Queue] Received message id=#{message.id}, attempts=#{message.attempts}")
-    debug_console("[Uzumibi::Queue] Message data: #{message.data.inspect}")
+    debug_console("[Uzumibi::Queue] Received message id=#{message.id}")
+    debug_console("[Uzumibi::Queue] Message data: #{message.body.inspect}")
     if message.attempts < 3
       debug_console("[Uzumibi::Queue] Simulating failure for message id=#{message.id}")
       raise "Simulated processing failure for message id=#{message.id}"

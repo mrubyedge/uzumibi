@@ -56,6 +56,7 @@ const REGION_IVAR_KEY: &str = "@region";
 ///       attr_accessor id: String
 ///       attr_accessor timestamp: String
 ///       attr_accessor body: String
+///       attr_accessor attempts: Integer
 ///       def ack!() -> bool
 ///       def nack!() -> bool
 ///       def retry!(delay_seconds: Integer) -> bool
@@ -176,7 +177,7 @@ pub fn init_google(vm: &mut VM) {
     // Uzumibi::Message class
     let message_class = vm.define_class("Message", None, Some(uzumibi.clone()));
     let message_class_obj = RObject::class(message_class.clone(), vm);
-    for attr in ["id", "timestamp", "body"] {
+    for attr in ["id", "timestamp", "body", "attempts"] {
         mrb_funcall(
             vm,
             Some(message_class_obj.clone()),
