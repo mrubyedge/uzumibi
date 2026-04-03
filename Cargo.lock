@@ -2941,13 +2941,13 @@ dependencies = [
 [[package]]
 name = "uzumibi-google"
 version = "0.1.0-rc5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "153a6ac0c5b082b11b2075c42c2ba216ebe2001171ec4680a01a60943b13ead8"
 dependencies = [
  "anyhow",
  "base64",
  "jsonwebtoken",
- "mockito",
  "mrubyedge",
- "mrubyedge-serde-json",
  "reqwest",
  "serde",
  "serde_json",
@@ -2956,14 +2956,14 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-google"
-version = "0.1.0-rc5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "153a6ac0c5b082b11b2075c42c2ba216ebe2001171ec4680a01a60943b13ead8"
+version = "0.1.0-rc6"
 dependencies = [
  "anyhow",
  "base64",
  "jsonwebtoken",
+ "mockito",
  "mrubyedge",
+ "mrubyedge-serde-json",
  "reqwest",
  "serde",
  "serde_json",
@@ -2993,7 +2993,7 @@ dependencies = [
  "mrubyedge",
  "tokio",
  "uzumibi-gem 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "uzumibi-google 0.1.0-rc5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "uzumibi-google 0.1.0-rc5",
 ]
 
 [[package]]
