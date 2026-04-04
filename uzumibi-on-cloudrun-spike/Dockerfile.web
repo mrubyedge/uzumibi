@@ -12,7 +12,7 @@ COPY Cargo.toml ./
 COPY lib ./lib
 COPY src ./src
 RUN touch src/main.rs
-RUN cargo build --release --features queue
+RUN cargo build --release
 
 FROM debian:13-slim
 

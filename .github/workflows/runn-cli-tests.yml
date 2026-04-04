@@ -180,6 +180,43 @@ jobs:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_PROJECT_NAME: test-cloudrun-project-${{ github.run_id }}
+        run: runn run new_cloudrun.yml --verbose
+
+  cloudrun-enable-external-test:
+    name: Cloud Run template test (enable-external)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-cloudrun-ext-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-cloudrun-ext-
+
+      - name: Install runn
+        uses: k1LoW/gh-setup@v1
+        with:
+          repo: k1LoW/runn
+          bin-match: runn
+
+      - name: Run cloudrun tests
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
+          UZUMIBI_PROJECT_NAME: test-cloudrun-project-${{ github.run_id }}
         run: runn run new_cloudrun.yml --verbose
 
   webworker-test:

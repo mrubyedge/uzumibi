@@ -1,13 +1,22 @@
 extern crate mrubyedge;
 extern crate uzumibi_gem;
+#[cfg(feature = "enable-external")]
+extern crate uzumibi_google;
 
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
+#[cfg(not(feature = "queue"))]
+use std::collections::HashMap;
+
+#[cfg(not(feature = "queue"))]
 use http_body_util::Full;
+#[cfg(not(feature = "queue"))]
 use hyper::body::Bytes;
+#[cfg(not(feature = "queue"))]
 use hyper::{Request, Response, body::Incoming as IncomingBody};
+#[cfg(not(feature = "queue"))]
+use mrubyedge::error::StaticError;
 use mrubyedge::{
-    error::StaticError,
     rite::rite,
     yamrb::{
         helpers::{mrb_define_cmethod, mrb_funcall},
@@ -16,7 +25,10 @@ use mrubyedge::{
     },
 };
 
+#[cfg(not(feature = "queue"))]
 static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.mrb"));
+#[cfg(feature = "queue")]
+static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/consumer.mrb"));
 
 fn debug_console_log_internal(message: &str) {
     println!("{}", message);
@@ -38,6 +50,8 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
         .map_err(|e| mrubyedge::Error::RuntimeError(format!("Failed to load mruby: {:?}", e)))?;
     let mut vm = VM::open(&mut rite);
     uzumibi_gem::init::init_uzumibi(&mut vm);
+    #[cfg(feature = "enable-external")]
+    uzumibi_google::init_google(&mut vm);
     let object = vm.object_class.clone();
     mrb_define_cmethod(
         &mut vm,
@@ -52,6 +66,15 @@ fn init_vm() -> Result<VM, mrubyedge::Error> {
     Ok(vm)
 }
 
+#[cfg(feature = "queue")]
+pub(crate) fn uzumibi_dispatch_queue_message(buf: &[u8]) -> uzumibi_google::QueueDispatchResult {
+    match init_vm() {
+        Ok(mut vm) => uzumibi_google::dispatch_queue_message(&mut vm, buf),
+        Err(e) => uzumibi_google::QueueDispatchResult::InternalError(e.to_string()),
+    }
+}
+
+#[cfg(not(feature = "queue"))]
 pub(crate) fn uzumibi_handle_request(
     request: uzumibi_gem::request::Request,
 ) -> Result<Response<Full<Bytes>>, mrubyedge::error::StaticError> {
@@ -75,6 +98,7 @@ pub(crate) fn uzumibi_handle_request(
     build_response_from_robject(&mut vm, response_robject)
 }
 
+#[cfg(not(feature = "queue"))]
 pub(crate) fn build_uzumibi_request(
     request: &Request<IncomingBody>,
 ) -> uzumibi_gem::request::Request {
@@ -100,6 +124,7 @@ pub(crate) fn build_uzumibi_request(
     }
 }
 
+#[cfg(not(feature = "queue"))]
 pub(crate) fn build_response_from_robject(
     vm: &mut VM,
     response: Rc<RObject>,

@@ -2,5 +2,32 @@
 name = "uzumibi-google"
 version = "0.1.0"
 edition = "2024"
+authors = ["Uchio Kondo <udzura@udzura.jp>"]
+description = "Google Cloud extension for Uzumibi (Cloud Run metadata, Firestore, Pub/Sub, IAP JWT)"
+license = "BSD-3-Clause"
+repository = "https://github.com/mrubyedge/uzumibi"
+readme = "../README.md"
+
+[features]
+default = []
+queue = []
+iap-identity = ["dep:jsonwebtoken"]
+pubsub-pull = []
 
 [dependencies]
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+jsonwebtoken = { version = "10.3.0", features = [
+    "rust_crypto",
+], optional = true }
+anyhow = "1.0"
+thiserror = "1.0"
+base64 = "0.22"
+mrubyedge = { version = ">= 1.1.0", features = [
+    "no-wasi",
+], default-features = false }
+mrubyedge-serde-json = { version = ">= 0.1.2", optional = true }
+
+[dev-dependencies]
+mockito = "1.4"

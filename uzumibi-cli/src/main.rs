@@ -93,7 +93,7 @@ fn create_project(
     // Collect feature overlay paths to know which files to skip from base
     let mut feature_files = collect_feature_overlay_files(template, features);
 
-    // When queue feature is active, skip app.rb (consumer.rb replaces it)
+    // For queue feature, skip app.rb (consumer.rb replaces it)
     if features.iter().any(|f| f == "queue") {
         feature_files.insert("lib/app.rb".to_string());
     }
@@ -351,7 +351,7 @@ fn substitute_project_name(content: &str, project_name: &str) -> String {
         .replace("$$PROJECT_NAME_KEBAB$$", &project_name_kebab)
 }
 
-fn print_project_next_steps(template: &str, project_name: &str, features: &[String]) {
+fn print_project_next_steps(template: &str, _project_name: &str, features: &[String]) {
     let has_enable_external = features.iter().any(|f| f == "enable-external");
     let has_queue = features.iter().any(|f| f == "queue");
 
@@ -427,14 +427,29 @@ fn print_project_next_steps(template: &str, project_name: &str, features: &[Stri
             println!("     Visit: https://cloud.google.com/run/docs/securing/service-identity");
             println!();
             println!("  1. Build the project:");
-            println!("     \x1b[36mdocker build -t {} .\x1b[0m", project_name);
+            println!("     \x1b[36mmake docker-build\x1b[0m");
             println!("  2. Test locally (optional):");
-            println!(
-                "     \x1b[36mdocker run -p 8080:8080 {}\x1b[0m",
-                project_name
-            );
+            println!("     \x1b[36mmake docker-run\x1b[0m");
             println!("  3. Deploy to Cloud Run:");
-            println!("     \x1b[36mgcloud run deploy --source . --platform managed\x1b[0m");
+            println!("     \x1b[36mmake deploy\x1b[0m");
+            if has_queue {
+                println!();
+                println!(
+                    "  \x1b[33mNote:\x1b[0m This project uses queue feature (Google Pub/Sub push consumer)."
+                );
+                println!(
+                    "  Edit \x1b[36mlib/consumer.rb\x1b[0m to implement your queue consumer logic."
+                );
+                println!(
+                    "  Configure \x1b[36mcloudrun-env.yaml\x1b[0m and deploy with \x1b[36m--env-vars-file cloudrun-env.yaml\x1b[0m."
+                );
+            } else if has_enable_external {
+                println!();
+                println!("  \x1b[33mNote:\x1b[0m This project uses enable-external feature.");
+                println!(
+                    "  Configure \x1b[36mcloudrun-env.yaml\x1b[0m and deploy with \x1b[36m--env-vars-file cloudrun-env.yaml\x1b[0m."
+                );
+            }
         }
         "fastly" => {
             println!("  0. Install required tools (if not installed):");

@@ -1,14 +1,856 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod firestore;
+mod http_client;
+#[cfg(feature = "iap-identity")]
+pub mod jwt;
+pub mod meta;
+pub mod pubsub;
+
+use std::rc::Rc;
+
+use base64::Engine;
+use mrubyedge::{
+    Error,
+    yamrb::{
+        helpers::{mrb_define_class_cmethod, mrb_define_cmethod, mrb_funcall},
+        prelude::hash::{mrb_hash_new, mrb_hash_set_index},
+        value::{RObject, RSym, RValue},
+        vm::VM,
+    },
+};
+
+const TOKEN_IVAR_KEY: &str = "@token";
+const PROJECT_ID_IVAR_KEY: &str = "@project_id";
+const PROJECT_NUMBER_IVAR_KEY: &str = "@project_number";
+const REGION_IVAR_KEY: &str = "@region";
+const QUEUE_ACTION_IVAR_KEY: &str = "@queue_action";
+
+#[cfg(feature = "queue")]
+#[derive(Debug, Clone)]
+pub enum QueueDispatchResult {
+    Ack,
+    Redeliver,
+    InternalError(String),
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// init_google() defines Uzumibi::Google class and Uzumibi::KV class.
+///
+/// ```rbs
+/// @rbs!
+///   module Uzumibi
+///     class Google
+///       def self.fetch_token() -> String
+///       def self.token() -> String
+///       def self.token=(value: String) -> String
+///       def self.fetch_project_id() -> String
+///       def self.project_id() -> String
+///       def self.project_id=(value: String) -> String
+///       def self.fetch_project_number() -> String
+///       def self.project_number() -> String
+///       def self.project_number=(value: String) -> String
+///       def self.fetch_region() -> String
+///       def self.region() -> String
+///       def self.region=(value: String) -> String
+///     end
+///     class KV
+///       def self.get(key: String) -> String?
+///       def self.set(key: String, value: String) -> bool
+///     end
+///     class Fetch
+///       def self.fetch(url: String, method: String = "GET", body: String = "", headers: Hash[String, String] = {}) -> Response
+///     end
+///     class Queue
+///       def self.send(topic_name: String, message: String) -> bool
+///     end
+///     class Message
+///       attr_accessor id: String
+///       attr_accessor timestamp: String
+///       attr_accessor body: String
+///       attr_accessor attempts: Integer
+///       def ack!() -> bool
+///       def nack!() -> bool
+///       def retry!(delay_seconds: Integer) -> bool
+///     end
+///     class Consumer
+///       def on_receive(message: Message) -> untyped
+///     end
+///     class Access
+///       def self.get_identity(jwt_token: String, expected_audience: String?) -> Identity
+///     end
+///     class Identity
+///       attr_accessor user_uuid: String
+///       attr_accessor email: String
+///       attr_accessor raw_data: String
+///     end
+///   end
+/// ```
+pub fn init_google(vm: &mut VM) {
+    // init_uzumibi defines Uzumibi and core classes (e.g. Router).
+    // Reusing the existing module avoids wiping previously defined constants.
+    let uzumibi = vm.get_module_by_name("Uzumibi");
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    // Uzumibi::Google class
+    let google_mod = vm.define_class("Google", None, Some(uzumibi.clone()));
+
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_token",
+        Box::new(uzumibi_google_fetch_token),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "token",
+        Box::new(uzumibi_google_token),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "token=",
+        Box::new(uzumibi_google_set_token),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_project_id",
+        Box::new(uzumibi_google_fetch_project_id),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_id",
+        Box::new(uzumibi_google_project_id),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_id=",
+        Box::new(uzumibi_google_set_project_id),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_project_number",
+        Box::new(uzumibi_google_fetch_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_number",
+        Box::new(uzumibi_google_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "project_number=",
+        Box::new(uzumibi_google_set_project_number),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "fetch_region",
+        Box::new(uzumibi_google_fetch_region),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "region",
+        Box::new(uzumibi_google_region),
+    );
+    mrb_define_class_cmethod(
+        vm,
+        google_mod.clone(),
+        "region=",
+        Box::new(uzumibi_google_set_region),
+    );
+
+    // Uzumibi::KV class
+    let kv_class = vm.define_class("KV", None, Some(uzumibi.clone()));
+
+    mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_get));
+    mrb_define_class_cmethod(vm, kv_class.clone(), "set", Box::new(uzumibi_kv_set));
+
+    // Uzumibi::Fetch class
+    let fetch_class = vm.define_class("Fetch", None, Some(uzumibi.clone()));
+    mrb_define_class_cmethod(
+        vm,
+        fetch_class,
+        "fetch",
+        Box::new(uzumibi_fetch_class_fetch),
+    );
+
+    // Uzumibi::Queue class
+    let queue_class = vm.define_class("Queue", None, Some(uzumibi.clone()));
+    mrb_define_class_cmethod(vm, queue_class, "send", Box::new(uzumibi_queue_class_send));
+
+    // Uzumibi::Message class
+    let message_class = vm.define_class("Message", None, Some(uzumibi.clone()));
+    let message_class_obj = RObject::class(message_class.clone(), vm);
+    for attr in ["id", "timestamp", "body", "attempts"] {
+        mrb_funcall(
+            vm,
+            Some(message_class_obj.clone()),
+            "attr_accessor",
+            &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+        )
+        .expect("attr_accessor failed");
+    }
+    mrb_define_cmethod(
+        vm,
+        message_class.clone(),
+        "ack!",
+        Box::new(uzumibi_message_ack),
+    );
+    mrb_define_cmethod(
+        vm,
+        message_class.clone(),
+        "nack!",
+        Box::new(uzumibi_message_nack),
+    );
+    mrb_define_cmethod(vm, message_class, "retry!", Box::new(uzumibi_message_retry));
+
+    #[cfg(feature = "queue")]
+    {
+        // Uzumibi::Consumer (base class for user-defined consumers)
+        let consumer_class = vm.define_class("Consumer", None, Some(uzumibi.clone()));
+        mrb_define_cmethod(
+            vm,
+            consumer_class,
+            "on_receive",
+            Box::new(uzumibi_consumer_on_receive),
+        );
+    }
+
+    #[cfg(feature = "iap-identity")]
+    {
+        // Uzumibi::Access class
+        let access_class = vm.define_class("Access", None, Some(uzumibi.clone()));
+        mrb_define_class_cmethod(
+            vm,
+            access_class,
+            "get_identity",
+            Box::new(uzumibi_access_get_identity),
+        );
+
+        // Uzumibi::Identity class
+        let identity_class = vm.define_class("Identity", None, Some(uzumibi));
+        let identity_class_obj = RObject::class(identity_class, vm);
+        for attr in ["user_uuid", "email", "raw_data"] {
+            mrb_funcall(
+                vm,
+                Some(identity_class_obj.clone()),
+                "attr_accessor",
+                &[RObject::symbol(RSym::new(attr.to_string())).to_refcount_assigned()],
+            )
+            .expect("attr_accessor failed");
+        }
+    }
+}
+
+// --- Uzumibi::Google methods ---
+
+fn uzumibi_google_fetch_token(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let token = meta::get_authorization_token_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch token: {}", e)))?;
+
+    let token_obj = RObject::string(token).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(TOKEN_IVAR_KEY, token_obj.clone());
+    Ok(token_obj)
+}
+
+fn uzumibi_google_token(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let token = klass.get_ivar(TOKEN_IVAR_KEY);
+    if token.is_falsy() {
+        return uzumibi_google_fetch_token(vm, _args);
+    }
+    Ok(token)
+}
+
+fn uzumibi_google_set_token(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(TOKEN_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+fn uzumibi_google_fetch_project_id(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    let project_id = meta::get_project_id_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch project_id: {}", e)))?;
+
+    let project_id_obj = RObject::string(project_id).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_ID_IVAR_KEY, project_id_obj.clone());
+    Ok(project_id_obj)
+}
+
+fn uzumibi_google_project_id(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let project_id = klass.get_ivar(PROJECT_ID_IVAR_KEY);
+    if project_id.is_falsy() {
+        return uzumibi_google_fetch_project_id(vm, _args);
+    }
+    Ok(project_id)
+}
+
+fn uzumibi_google_set_project_id(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_ID_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+fn uzumibi_google_fetch_project_number(
+    vm: &mut VM,
+    _args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    let project_number = meta::get_project_number_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch project_number: {}", e)))?;
+
+    let project_number_obj = RObject::string(project_number).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_NUMBER_IVAR_KEY, project_number_obj.clone());
+    Ok(project_number_obj)
+}
+
+fn uzumibi_google_project_number(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let project_number = klass.get_ivar(PROJECT_NUMBER_IVAR_KEY);
+    if project_number.is_falsy() {
+        return uzumibi_google_fetch_project_number(vm, _args);
+    }
+    Ok(project_number)
+}
+
+fn uzumibi_google_set_project_number(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(PROJECT_NUMBER_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+fn uzumibi_google_fetch_region(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let region = meta::get_region_from_metadata()
+        .map_err(|e| Error::RuntimeError(format!("Failed to fetch region: {}", e)))?;
+
+    let region_obj = RObject::string(region).to_refcount_assigned();
+    let klass = vm.getself()?;
+    klass.set_ivar(REGION_IVAR_KEY, region_obj.clone());
+    Ok(region_obj)
+}
+
+fn uzumibi_google_region(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let klass = vm.getself()?;
+    let region = klass.get_ivar(REGION_IVAR_KEY);
+    if region.is_falsy() {
+        return uzumibi_google_fetch_region(vm, _args);
+    }
+    Ok(region)
+}
+
+fn uzumibi_google_set_region(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: value".to_string(),
+        ));
+    }
+    let klass = vm.getself()?;
+    klass.set_ivar(REGION_IVAR_KEY, args[0].clone());
+    Ok(args[0].clone())
+}
+
+// --- Uzumibi::KV methods ---
+
+fn get_google_credentials(vm: &mut VM) -> Result<(String, String), Error> {
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+    let google_const = uzumibi_module
+        .get_const_by_name("Google")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Google class not found".to_string()))?;
+    let google_class = match &google_const.as_ref().value {
+        RValue::Class(c) => c.clone(),
+        _ => {
+            return Err(Error::RuntimeError(
+                "Uzumibi::Google must be a class".to_string(),
+            ));
+        }
+    };
+    let google_obj = RObject::class(google_class, vm);
+
+    let token_obj = mrb_funcall(vm, Some(google_obj.clone()), "token", &[])?;
+    let token: String = token_obj
+        .as_ref()
+        .try_into()
+        .map_err(|e| Error::RuntimeError(format!("Invalid token: {}", e)))?;
+
+    let project_id_obj = mrb_funcall(vm, Some(google_obj), "project_id", &[])?;
+    let project_id: String = project_id_obj
+        .as_ref()
+        .try_into()
+        .map_err(|e| Error::RuntimeError(format!("Invalid project_id: {}", e)))?;
+
+    Ok((token, project_id))
+}
+
+fn uzumibi_kv_get(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError("Expected 1 argument: key".to_string()));
+    }
+    let key: String = args[0]
+        .as_ref()
+        .try_into()
+        .map_err(|e| Error::RuntimeError(format!("Invalid key: {}", e)))?;
+
+    let (token, project_id) = get_google_credentials(vm)?;
+
+    match firestore::get_document(&project_id, &token, &key) {
+        Ok(value) => Ok(RObject::string(value).to_refcount_assigned()),
+        Err(firestore::FirestoreError::DocumentNotFound(_)) => {
+            Ok(RObject::nil().to_refcount_assigned())
+        }
+        Err(e) => Err(Error::RuntimeError(format!("KV get failed: {}", e))),
+    }
+}
+
+fn uzumibi_kv_set(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.len() < 2 {
+        return Err(Error::ArgumentError(
+            "Expected 2 arguments: key, value".to_string(),
+        ));
+    }
+    let key: String = args[0]
+        .as_ref()
+        .try_into()
+        .map_err(|e| Error::RuntimeError(format!("Invalid key: {}", e)))?;
+    let value: String = args[1]
+        .as_ref()
+        .try_into()
+        .map_err(|e| Error::RuntimeError(format!("Invalid value: {}", e)))?;
+
+    let (token, project_id) = get_google_credentials(vm)?;
+
+    match firestore::set_document(&project_id, &token, &key, &value) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!("KV set failed: {}", e))),
+    }
+}
+
+// --- Uzumibi::Fetch methods ---
+
+/// Fetch.fetch(url, method="GET", body="", headers={}) -> Response
+fn uzumibi_fetch_class_fetch(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError("Expected 1 argument: url".to_string()));
+    }
+
+    let url_obj = &args[0];
+    let url = mrb_funcall(vm, url_obj.clone().into(), "to_s", &[])?;
+    let url: String = url.as_ref().try_into()?;
+
+    let method = if args.len() > 1 {
+        let m = mrb_funcall(vm, args[1].clone().into(), "to_s", &[])?;
+        let m: String = m.as_ref().try_into()?;
+        m
+    } else {
+        "GET".to_string()
+    };
+
+    let body = if args.len() > 2 {
+        let b = mrb_funcall(vm, args[2].clone().into(), "to_s", &[])?;
+        let b: String = b.as_ref().try_into()?;
+        b
+    } else {
+        String::new()
+    };
+
+    // Parse headers from Hash (4th argument)
+    let mut headers_map = std::collections::HashMap::new();
+    if args.len() > 3
+        && let RValue::Hash(h) = &args[3].as_ref().value
+    {
+        let hash = h.borrow();
+        for (_, (key_obj, value_obj)) in hash.iter() {
+            let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+            let key: String = key.as_ref().try_into()?;
+            let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
+            let value: String = value.as_ref().try_into()?;
+            headers_map.insert(key, value);
+        }
+    }
+
+    // Make HTTP request
+    let client = http_client::blocking_client();
+    let mut request = match method.as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "PATCH" => client.patch(&url),
+        "DELETE" => client.delete(&url),
+        "HEAD" => client.head(&url),
+        _ => {
+            return Err(Error::RuntimeError(format!(
+                "Unsupported HTTP method: {}",
+                method
+            )));
+        }
+    };
+
+    // Add headers
+    for (key, value) in headers_map {
+        request = request.header(key, value);
+    }
+
+    // Add body for methods that support it
+    if !body.is_empty() && matches!(method.as_str(), "POST" | "PUT" | "PATCH") {
+        request = request.body(body);
+    }
+
+    let response = request
+        .send()
+        .map_err(|e| Error::RuntimeError(format!("HTTP request failed: {}", e)))?;
+
+    let status_code = response.status().as_u16();
+    let response_headers = response.headers().clone();
+    let response_body = response
+        .text()
+        .map_err(|e| Error::RuntimeError(format!("Failed to read response body: {}", e)))?;
+
+    // Create Uzumibi::Response instance
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+    let response_class = uzumibi_module
+        .get_const_by_name("Response")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Response class not found".to_string()))?;
+    let response_obj = mrb_funcall(vm, Some(response_class), "new", &[])?;
+
+    response_obj.set_ivar(
+        "@status_code",
+        RObject::integer(status_code as i64).to_refcount_assigned(),
+    );
+
+    let headers_hash = mrb_hash_new(vm, &[])?;
+    for (key, value) in response_headers.iter() {
+        let key_str = key.to_string();
+        let value_str = value.to_str().unwrap_or("").to_string();
+        mrb_hash_set_index(
+            headers_hash.clone(),
+            RObject::string(key_str).to_refcount_assigned(),
+            RObject::string(value_str).to_refcount_assigned(),
+        )?;
+    }
+    response_obj.set_ivar("@headers", headers_hash);
+
+    response_obj.set_ivar(
+        "@body",
+        RObject::string(response_body).to_refcount_assigned(),
+    );
+
+    Ok(response_obj)
+}
+
+// --- Uzumibi::Queue methods ---
+
+/// Queue.send(topic_name, message) -> bool
+fn uzumibi_queue_class_send(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.len() < 2 {
+        return Err(Error::ArgumentError(
+            "Expected 2 arguments: topic_name, message".to_string(),
+        ));
+    }
+
+    let topic_obj = &args[0];
+    let topic = mrb_funcall(vm, topic_obj.clone().into(), "to_s", &[])?;
+    let topic: String = topic.as_ref().try_into()?;
+
+    let message_obj = &args[1];
+    let message = mrb_funcall(vm, message_obj.clone().into(), "to_s", &[])?;
+    let message: String = message.as_ref().try_into()?;
+
+    let (token, project_id) = get_google_credentials(vm)?;
+
+    // Accept both short name ("my-topic") and full path ("projects/p/topics/my-topic").
+    let topic = if topic.starts_with("projects/") {
+        topic
+    } else {
+        format!("projects/{}/topics/{}", project_id, topic)
+    };
+
+    let encoded_message = base64::engine::general_purpose::STANDARD.encode(message.as_bytes());
+
+    let pubsub_message = pubsub::PubsubMessage {
+        data: Some(encoded_message),
+        attributes: None,
+        message_id: None,
+        publish_time: None,
+        ordering_key: None,
+    };
+
+    match pubsub::publish(&token, &topic, vec![pubsub_message]) {
+        Ok(_) => Ok(RObject::boolean(true).to_refcount_assigned()),
+        Err(e) => Err(Error::RuntimeError(format!(
+            "Failed to send message: {}",
+            e
+        ))),
+    }
+}
+
+// --- Uzumibi::Message methods ---
+
+/// Message#ack! -> bool
+fn uzumibi_message_ack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("ack".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// Message#nack! -> bool (modifyAckDeadline with 0 seconds)
+fn uzumibi_message_nack(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("nack".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// Message#retry!(delay_seconds: N) -> bool
+fn uzumibi_message_retry(vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    let self_obj = vm.getself()?;
+    self_obj.set_ivar(
+        QUEUE_ACTION_IVAR_KEY,
+        RObject::symbol(RSym::new("retry".to_string())).to_refcount_assigned(),
+    );
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+#[cfg(feature = "queue")]
+fn uzumibi_consumer_on_receive(_vm: &mut VM, _args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    Err(Error::RuntimeError(
+        "on_receive must be implemented by subclass of Uzumibi::Consumer".to_string(),
+    ))
+}
+
+// --- Uzumibi::Access methods ---
+
+#[cfg(feature = "iap-identity")]
+/// Access.get_identity(jwt_token) -> Identity
+fn uzumibi_access_get_identity(vm: &mut VM, args: &[Rc<RObject>]) -> Result<Rc<RObject>, Error> {
+    if args.is_empty() {
+        return Err(Error::ArgumentError(
+            "Expected 1 argument: jwt_token".to_string(),
+        ));
+    }
+
+    let uzumibi = vm
+        .get_const_by_name("Uzumibi")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi module not found".to_string()))?;
+    let uzumibi_module = match &uzumibi.as_ref().value {
+        RValue::Module(m) => m.clone(),
+        _ => return Err(Error::RuntimeError("Uzumibi must be a module".to_string())),
+    };
+
+    let token_obj = &args[0];
+    let token = mrb_funcall(vm, token_obj.clone().into(), "to_s", &[])?;
+    let token: String = token.as_ref().try_into()?;
+
+    let expected_audience = if args.len() > 1 {
+        let aud = mrb_funcall(vm, args[1].clone().into(), "to_s", &[])?;
+        let aud: String = aud.as_ref().try_into()?;
+        aud
+    } else {
+        get_default_iap_audience()?
+    };
+
+    let claims = jwt::validate_iap_jwt(&token, &expected_audience)
+        .map_err(|e| Error::RuntimeError(format!("Failed to validate JWT: {}", e)))?;
+
+    // Create Uzumibi::Identity instance
+    let identity_class = uzumibi_module
+        .get_const_by_name("Identity")
+        .ok_or_else(|| Error::RuntimeError("Uzumibi::Identity class not found".to_string()))?;
+
+    let identity = mrb_funcall(vm, Some(identity_class), "new", &[])?;
+    let raw_data = serde_json::to_string(&claims)
+        .map_err(|e| Error::RuntimeError(format!("Failed to serialize identity claims: {}", e)))?;
+
+    identity.set_ivar(
+        "@user_uuid",
+        RObject::string(claims.sub).to_refcount_assigned(),
+    );
+    identity.set_ivar(
+        "@email",
+        RObject::string(claims.email).to_refcount_assigned(),
+    );
+    identity.set_ivar(
+        "@raw_data",
+        RObject::string(raw_data).to_refcount_assigned(),
+    );
+
+    Ok(identity)
+}
+
+#[cfg(feature = "iap-identity")]
+fn get_default_iap_audience() -> Result<String, Error> {
+    let project_number = std::env::var("GOOGLE_CLOUD_PROJECT_NUMBER")
+        .or_else(|_| std::env::var("GCP_PROJECT_NUMBER"))
+        .or_else(|_| meta::get_project_number_from_metadata())
+        .map_err(|e| Error::RuntimeError(format!("Failed to determine project number: {}", e)))?;
+    // Fetch region and service name from Cloud Run env vars when available.
+    // K_REGION may be absent in some environments, so fallback to metadata server.
+    let region = std::env::var("K_REGION")
+        .or_else(|_| meta::get_region_from_metadata())
+        .map_err(|e| Error::RuntimeError(format!("Failed to determine region: {}", e)))?;
+    let service_name = std::env::var("K_SERVICE")
+        .map_err(|_| Error::RuntimeError("K_SERVICE is not set".to_string()))?;
+
+    Ok(format!(
+        "/projects/{}/locations/{}/services/{}",
+        project_number, region, service_name
+    ))
+}
+
+/// Unpack a queue message from Cloud Run Pub/Sub push body and call `$CONSUMER.on_receive(message)`.
+///
+/// Expected body format is Pub/Sub push JSON.
+#[cfg(feature = "queue")]
+pub fn dispatch_queue_message(vm: &mut VM, buf: &[u8]) -> QueueDispatchResult {
+    let result: Result<QueueDispatchResult, mrubyedge::Error> = (|| {
+        let root: serde_json::Value = serde_json::from_slice(buf).map_err(|e| {
+            mrubyedge::Error::RuntimeError(format!("Failed to parse Pub/Sub push body: {}", e))
+        })?;
+
+        let message = root.get("message").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError(
+                "Invalid Pub/Sub push body: missing `message` object".to_string(),
+            )
+        })?;
+
+        let id = message
+            .get("messageId")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let timestamp = message
+            .get("publishTime")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let subscription = root
+            .get("subscription")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let attempts = root
+            .get("deliveryAttempt")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(-1);
+
+        let raw_data = message
+            .get("data")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let body = match base64::engine::general_purpose::STANDARD.decode(raw_data.as_bytes()) {
+            Ok(decoded) => String::from_utf8(decoded).map_err(|e| {
+                mrubyedge::Error::RuntimeError(format!(
+                    "Failed to decode Pub/Sub data as UTF-8: {}",
+                    e
+                ))
+            })?,
+            Err(_) => raw_data,
+        };
+
+        // Create Uzumibi::Message instance
+        let uzumibi = vm.get_const_by_name("Uzumibi").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi module not found".to_string())
+        })?;
+        let uzumibi_module = match &uzumibi.as_ref().value {
+            RValue::Module(m) => m.clone(),
+            _ => {
+                return Err(mrubyedge::Error::RuntimeError(
+                    "Uzumibi must be a module".to_string(),
+                ));
+            }
+        };
+        let message_class = uzumibi_module.get_const_by_name("Message").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("Uzumibi::Message class not found".to_string())
+        })?;
+        let message = mrb_funcall(vm, Some(message_class), "new", &[])?;
+
+        message.set_ivar("@id", RObject::string(id).to_refcount_assigned());
+        message.set_ivar(
+            "@timestamp",
+            RObject::string(timestamp).to_refcount_assigned(),
+        );
+        message.set_ivar("@body", RObject::string(body).to_refcount_assigned());
+        message.set_ivar(
+            "@attempts",
+            RObject::integer(attempts).to_refcount_assigned(),
+        );
+        message.set_ivar(
+            "@subscription",
+            RObject::string(subscription).to_refcount_assigned(),
+        );
+
+        // Call $CONSUMER.on_receive(message)
+        let consumer = vm.globals.get("$CONSUMER").ok_or_else(|| {
+            mrubyedge::Error::RuntimeError("$CONSUMER is not defined".to_string())
+        })?;
+        mrb_funcall(
+            vm,
+            consumer.clone().into(),
+            "on_receive",
+            &[message.clone()],
+        )?;
+
+        let queue_action_obj = message.get_ivar(QUEUE_ACTION_IVAR_KEY);
+        let result = match &queue_action_obj.as_ref().value {
+            RValue::Symbol(sym) => match sym.name.as_str() {
+                "ack" => QueueDispatchResult::Ack,
+                "nack" | "retry" => QueueDispatchResult::Redeliver,
+                _ => QueueDispatchResult::InternalError("Unknown queue action".to_string()),
+            },
+            RValue::Nil => QueueDispatchResult::Ack,
+            _ => QueueDispatchResult::InternalError("Invalid queue action type".to_string()),
+        };
+
+        Ok(result)
+    })();
+
+    match result {
+        Ok(r) => r,
+        Err(e) => QueueDispatchResult::InternalError(e.to_string()),
     }
 }
