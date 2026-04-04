@@ -12,12 +12,12 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1"
 spin-sdk = "5.0.0"
-mrubyedge = { version = ">= 1.1.10", features = [
+mrubyedge = { version = ">= 1.1.12", features = [
     "wasi",
 ], default-features = false }
-uzumibi-gem = ">= 0.5.0"
+uzumibi-gem = ">= 0.6.0"
 uzumibi-art-router = ">= 0.3.1"
-mrubyedge-serde-json = ">= 0.1.1"
+mrubyedge-serde-json = ">= 0.1.2"
 log = "0.4.29"
 
 [build-dependencies]
