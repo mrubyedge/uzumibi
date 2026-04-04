@@ -93,7 +93,7 @@ fn create_project(
     // Collect feature overlay paths to know which files to skip from base
     let mut feature_files = collect_feature_overlay_files(template, features);
 
-    // When queue feature is active, skip app.rb (consumer.rb replaces it)
+    // For queue feature, skip app.rb (consumer.rb replaces it)
     if features.iter().any(|f| f == "queue") {
         feature_files.insert("lib/app.rb".to_string());
     }
