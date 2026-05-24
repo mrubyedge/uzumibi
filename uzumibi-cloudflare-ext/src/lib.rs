@@ -65,6 +65,12 @@ unsafe extern "C" {
         message_ptr: *const u8,
         message_size: usize,
     ) -> i32;
+    unsafe fn uzumibi_cf_secret_get(
+        key_ptr: *const u8,
+        key_size: usize,
+        result_ptr: *mut u8,
+        result_max_size: usize,
+    ) -> i32;
 }
 
 // ---- Debug console ----
@@ -147,6 +153,30 @@ fn cf_durable_object_set(key: &str, value: &str) -> Result<(), String> {
         match result {
             0 => Ok(()),
             _ => Err(format!("Failed to set value: return code {}", result)),
+        }
+    }
+}
+
+#[cfg(feature = "enable-external")]
+fn cf_secret_get(key: &str) -> Result<Option<String>, String> {
+    const BUFFER_SIZE: usize = 65536;
+    let mut buffer = vec![0u8; BUFFER_SIZE];
+
+    unsafe {
+        let result =
+            uzumibi_cf_secret_get(key.as_ptr(), key.len(), buffer.as_mut_ptr(), BUFFER_SIZE);
+        match result {
+            -1 => Ok(None),
+            len if len >= 0 => {
+                let len = len as usize;
+                let value = String::from_utf8(buffer[..len].to_vec())
+                    .map_err(|e| format!("Failed to decode UTF-8: {}", e))?;
+                Ok(Some(value))
+            }
+            _ => Err(format!(
+                "Unexpected return value from secret_get: {}",
+                result
+            )),
         }
     }
 }
@@ -373,6 +403,26 @@ fn uzumibi_kv_class_set(
     })?;
 
     Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// Secret.get(key) -> String | nil
+#[cfg(feature = "enable-external")]
+fn uzumibi_secret_class_get(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let key_obj = &args[0];
+    let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+    let key: String = key.as_ref().try_into()?;
+
+    match cf_secret_get(&key) {
+        Ok(Some(value)) => Ok(RObject::string(value).to_refcount_assigned()),
+        Ok(None) => Ok(RObject::nil().to_refcount_assigned()),
+        Err(e) => Err(mrubyedge::Error::RuntimeError(format!(
+            "Failed to get secret: {}",
+            e
+        ))),
+    }
 }
 
 /// Queue.send(queue_name, message)
@@ -677,6 +727,10 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
         let kv_class = vm.define_class("KV", None, Some(uzumibi_module.clone()));
         mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_class_get));
         mrb_define_class_cmethod(vm, kv_class, "set", Box::new(uzumibi_kv_class_set));
+
+        // Uzumibi::Secret.get(key)
+        let secret_class = vm.define_class("Secret", None, Some(uzumibi_module.clone()));
+        mrb_define_class_cmethod(vm, secret_class, "get", Box::new(uzumibi_secret_class_get));
 
         // Uzumibi::Queue.send(queue_name, message)
         let queue_class = vm.define_class("Queue", None, Some(uzumibi_module.clone()));
