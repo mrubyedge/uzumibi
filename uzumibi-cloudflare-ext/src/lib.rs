@@ -159,7 +159,7 @@ fn cf_durable_object_set(key: &str, value: &str) -> Result<(), String> {
 
 #[cfg(feature = "enable-external")]
 fn cf_secret_get(key: &str) -> Result<Option<String>, String> {
-    const BUFFER_SIZE: usize = 65536;
+    const BUFFER_SIZE: usize = 8192;
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
     unsafe {
