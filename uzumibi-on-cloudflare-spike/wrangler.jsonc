@@ -31,8 +31,19 @@
 		"binding": "ASSETS"
 	},
 	/**
+	 * KV Namespace
+	 * Used for Uzumibi::KV.get/set.
+	 * Replace the placeholder with a namespace ID from `wrangler kv namespace create`.
+	 */
+	"kv_namespaces": [
+		{
+			"binding": "UZUMIBI_KV",
+			"id": "e0bc3ab9504b4fc78a5b33b847ddbd19"
+		}
+	],
+	/**
 	 * Durable Objects
-	 * Used for Uzumibi::KV.get/set
+	 * Used for Uzumibi::LegacyKV.get/set
 	 * https://developers.cloudflare.com/durable-objects/
 	 */
 	"durable_objects": {
