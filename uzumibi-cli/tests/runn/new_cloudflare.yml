@@ -70,6 +70,7 @@ steps:
     desc: Build the WASM app
     exec:
       command: cd {{ vars.tmpdir }}/{{ vars.project_name }}/wasm-app && cargo build --target wasm32-unknown-unknown --release
+    dump: steps
     test: current.exit_code == 0
 
   start_server:
