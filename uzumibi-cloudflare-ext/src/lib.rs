@@ -19,11 +19,14 @@ pub const PASS_ASSETS: u64 = 0xFEFFFFFF;
 
 // ---- Cloudflare-specific extern C declarations ----
 
+// Host functions are supplied by the Worker's JavaScript importObject under the "env" module.
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn debug_console_log(ptr: *const u8, len: usize);
 }
 
 #[cfg(feature = "queue")]
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn uzumibi_cf_message_ack(message_id_ptr: *const u8, message_id_size: usize) -> i32;
     unsafe fn uzumibi_cf_message_retry(
@@ -34,6 +37,7 @@ unsafe extern "C" {
 }
 
 #[cfg(feature = "enable-external")]
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn uzumibi_cf_fetch(
         url_ptr: *const u8,
