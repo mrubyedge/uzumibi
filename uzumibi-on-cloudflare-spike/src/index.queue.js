@@ -5,7 +5,7 @@ import mod from "./uzumibi_on_cloudflare_spike_queue.wasm";
 const wasmModule = mod;
 
 /**
- * Durable Object for Uzumibi::KV storage
+ * Durable Object storage retained for Uzumibi::LegacyKV.
  */
 export class UzumibiKVObject extends DurableObject {
 	async get(key) {
@@ -27,7 +27,9 @@ export default {
 		const decoder = new TextDecoder();
 		const encoder = new TextEncoder();
 
-		// Durable Object stub (if binding exists)
+		const kv = env.UZUMIBI_KV ?? null;
+
+		// Durable Object stub retained for Uzumibi::LegacyKV.
 		const doStub = env.UZUMIBI_KV_DATA
 			? env.UZUMIBI_KV_DATA.getByName("default")
 			: null;
@@ -133,7 +135,34 @@ export default {
 					return pos;
 				},
 
-				// KV.get(key) -> value string (via Durable Object)
+				// KV.get(key) -> value string
+				uzumibi_cf_kv_get: async (keyPtr, keySize, resultPtr, resultMaxSize) => {
+					if (!kv) return -1;
+					const memory = exports.memory;
+					const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
+
+					const value = await kv.get(key);
+					if (value === null) return -1;
+
+					const valueBytes = encoder.encode(value);
+					const length = Math.min(valueBytes.length, resultMaxSize);
+					const resultBuffer = new Uint8Array(memory.buffer, resultPtr, resultMaxSize);
+					resultBuffer.set(valueBytes.slice(0, length));
+					return length;
+				},
+
+				// KV.set(key, value)
+				uzumibi_cf_kv_set: async (keyPtr, keySize, valuePtr, valueSize) => {
+					if (!kv) return -1;
+					const memory = exports.memory;
+					const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
+					const value = decoder.decode(new Uint8Array(memory.buffer, valuePtr, valueSize));
+
+					await kv.put(key, value);
+					return 0;
+				},
+
+				// LegacyKV.get(key) -> value string (via Durable Object)
 				uzumibi_cf_durable_object_get: async (keyPtr, keySize, resultPtr, resultMaxSize) => {
 					if (!doStub) return -1;
 					const memory = exports.memory;
@@ -149,7 +178,7 @@ export default {
 					return length;
 				},
 
-				// KV.set(key, value) (via Durable Object)
+				// LegacyKV.set(key, value) (via Durable Object)
 				uzumibi_cf_durable_object_set: async (keyPtr, keySize, valuePtr, valueSize) => {
 					if (!doStub) return -1;
 					const memory = exports.memory;

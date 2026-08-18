@@ -374,10 +374,25 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
             println!();
             println!("  1. Install dependencies:");
             println!("     \x1b[36mpnpm install\x1b[0m");
-            println!("  2. Build and start development server:");
-            println!("     \x1b[36mpnpm run dev\x1b[0m");
-            println!("  3. Deploy to Cloudflare:");
-            println!("     \x1b[36mpnpm run deploy\x1b[0m");
+            if has_enable_external || has_queue {
+                println!("  2. Set up a KV namespace for Uzumibi::KV:");
+                println!("     • Create a new namespace:");
+                println!("     \x1b[36mnpx wrangler kv namespace create UZUMIBI_KV\x1b[0m");
+                println!("     • Or list existing namespaces to reuse one:");
+                println!("     \x1b[36mnpx wrangler kv namespace list\x1b[0m");
+                println!(
+                    "     Then replace \x1b[36m<YOUR_KV_NAMESPACE_ID>\x1b[0m in \x1b[36mwrangler.jsonc\x1b[0m with the namespace ID."
+                );
+                println!("  3. Build and start development server:");
+                println!("     \x1b[36mpnpm run dev\x1b[0m");
+                println!("  4. Deploy to Cloudflare:");
+                println!("     \x1b[36mpnpm run deploy\x1b[0m");
+            } else {
+                println!("  2. Build and start development server:");
+                println!("     \x1b[36mpnpm run dev\x1b[0m");
+                println!("  3. Deploy to Cloudflare:");
+                println!("     \x1b[36mpnpm run deploy\x1b[0m");
+            }
             if has_queue {
                 println!();
                 println!(
@@ -394,7 +409,10 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
                     "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
                 );
                 println!(
-                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Cloudflare KV"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::LegacyKV.get(key)\x1b[0m / \x1b[36mUzumibi::LegacyKV.set(key, value)\x1b[0m → Durable Object storage"
                 );
                 println!(
                     "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"
@@ -407,7 +425,10 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
                     "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
                 );
                 println!(
-                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Cloudflare KV"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::LegacyKV.get(key)\x1b[0m / \x1b[36mUzumibi::LegacyKV.set(key, value)\x1b[0m → Durable Object storage"
                 );
                 println!(
                     "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"

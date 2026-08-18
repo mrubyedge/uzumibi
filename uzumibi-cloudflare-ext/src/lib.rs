@@ -19,11 +19,14 @@ pub const PASS_ASSETS: u64 = 0xFEFFFFFF;
 
 // ---- Cloudflare-specific extern C declarations ----
 
+// Host functions are supplied by the Worker's JavaScript importObject under the "env" module.
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn debug_console_log(ptr: *const u8, len: usize);
 }
 
 #[cfg(feature = "queue")]
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn uzumibi_cf_message_ack(message_id_ptr: *const u8, message_id_size: usize) -> i32;
     unsafe fn uzumibi_cf_message_retry(
@@ -34,6 +37,7 @@ unsafe extern "C" {
 }
 
 #[cfg(feature = "enable-external")]
+#[link(wasm_import_module = "env")]
 unsafe extern "C" {
     unsafe fn uzumibi_cf_fetch(
         url_ptr: *const u8,
@@ -46,6 +50,18 @@ unsafe extern "C" {
         headers_size: usize,
         result_ptr: *mut u8,
         result_max_size: usize,
+    ) -> i32;
+    unsafe fn uzumibi_cf_kv_get(
+        key_ptr: *const u8,
+        key_size: usize,
+        result_ptr: *mut u8,
+        result_max_size: usize,
+    ) -> i32;
+    unsafe fn uzumibi_cf_kv_set(
+        key_ptr: *const u8,
+        key_size: usize,
+        value_ptr: *const u8,
+        value_size: usize,
     ) -> i32;
     unsafe fn uzumibi_cf_durable_object_get(
         key_ptr: *const u8,
@@ -113,6 +129,37 @@ fn cf_fetch(url: &str, method: &str, body: &str, headers: &[u8]) -> Result<Vec<u
                 Ok(buffer[..len].to_vec())
             }
             _ => Err(format!("Fetch failed with return code: {}", result)),
+        }
+    }
+}
+
+#[cfg(feature = "enable-external")]
+fn cf_kv_get(key: &str) -> Result<Option<String>, String> {
+    const BUFFER_SIZE: usize = 65536;
+    let mut buffer = vec![0u8; BUFFER_SIZE];
+
+    unsafe {
+        let result = uzumibi_cf_kv_get(key.as_ptr(), key.len(), buffer.as_mut_ptr(), BUFFER_SIZE);
+        match result {
+            -1 => Ok(None),
+            len if len >= 0 => {
+                let len = len as usize;
+                let value = String::from_utf8(buffer[..len].to_vec())
+                    .map_err(|e| format!("Failed to decode UTF-8: {}", e))?;
+                Ok(Some(value))
+            }
+            _ => Err(format!("Unexpected return value from kv_get: {}", result)),
+        }
+    }
+}
+
+#[cfg(feature = "enable-external")]
+fn cf_kv_set(key: &str, value: &str) -> Result<(), String> {
+    unsafe {
+        let result = uzumibi_cf_kv_set(key.as_ptr(), key.len(), value.as_ptr(), value.len());
+        match result {
+            0 => Ok(()),
+            _ => Err(format!("Failed to set value: return code {}", result)),
         }
     }
 }
@@ -374,7 +421,7 @@ fn uzumibi_kv_class_get(
     let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
     let key: String = key.as_ref().try_into()?;
 
-    match cf_durable_object_get(&key) {
+    match cf_kv_get(&key) {
         Ok(Some(value)) => Ok(RObject::string(value).to_refcount_assigned()),
         Ok(None) => Ok(RObject::nil().to_refcount_assigned()),
         Err(e) => Err(mrubyedge::Error::RuntimeError(format!(
@@ -398,8 +445,49 @@ fn uzumibi_kv_class_set(
     let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
     let value: String = value.as_ref().try_into()?;
 
-    cf_durable_object_set(&key, &value).map_err(|e| {
+    cf_kv_set(&key, &value).map_err(|e| {
         mrubyedge::Error::RuntimeError(format!("Failed to set storage value: {}", e))
+    })?;
+
+    Ok(RObject::boolean(true).to_refcount_assigned())
+}
+
+/// LegacyKV.get(key)
+#[cfg(feature = "enable-external")]
+fn uzumibi_legacy_kv_class_get(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let key_obj = &args[0];
+    let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+    let key: String = key.as_ref().try_into()?;
+
+    match cf_durable_object_get(&key) {
+        Ok(Some(value)) => Ok(RObject::string(value).to_refcount_assigned()),
+        Ok(None) => Ok(RObject::nil().to_refcount_assigned()),
+        Err(e) => Err(mrubyedge::Error::RuntimeError(format!(
+            "Failed to access legacy storage value: {}",
+            e
+        ))),
+    }
+}
+
+/// LegacyKV.set(key, value)
+#[cfg(feature = "enable-external")]
+fn uzumibi_legacy_kv_class_set(
+    vm: &mut VM,
+    args: &[Rc<RObject>],
+) -> Result<Rc<RObject>, mrubyedge::Error> {
+    let key_obj = &args[0];
+    let key = mrb_funcall(vm, key_obj.clone().into(), "to_s", &[])?;
+    let key: String = key.as_ref().try_into()?;
+
+    let value_obj = &args[1];
+    let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
+    let value: String = value.as_ref().try_into()?;
+
+    cf_durable_object_set(&key, &value).map_err(|e| {
+        mrubyedge::Error::RuntimeError(format!("Failed to set legacy storage value: {}", e))
     })?;
 
     Ok(RObject::boolean(true).to_refcount_assigned())
@@ -727,6 +815,21 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
         let kv_class = vm.define_class("KV", None, Some(uzumibi_module.clone()));
         mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_class_get));
         mrb_define_class_cmethod(vm, kv_class, "set", Box::new(uzumibi_kv_class_set));
+
+        // Uzumibi::LegacyKV.get(key) / Uzumibi::LegacyKV.set(key, value)
+        let legacy_kv_class = vm.define_class("LegacyKV", None, Some(uzumibi_module.clone()));
+        mrb_define_class_cmethod(
+            vm,
+            legacy_kv_class.clone(),
+            "get",
+            Box::new(uzumibi_legacy_kv_class_get),
+        );
+        mrb_define_class_cmethod(
+            vm,
+            legacy_kv_class,
+            "set",
+            Box::new(uzumibi_legacy_kv_class_set),
+        );
 
         // Uzumibi::Secret.get(key)
         let secret_class = vm.define_class("Secret", None, Some(uzumibi_module.clone()));

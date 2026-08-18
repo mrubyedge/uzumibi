@@ -66,6 +66,20 @@ class App < Uzumibi::Router
     res
   end
 
+  get "/kv/:key" do |req, res|
+    value = Uzumibi::KV.get(req.params[:key])
+    if value
+      res.return(200, { "Content-Type" => "text/plain" }, value)
+    else
+      res.return(404, { "Content-Type" => "text/plain" }, "Key not found\n")
+    end
+  end
+
+  post "/kv/:key" do |req, res|
+    Uzumibi::KV.set(req.params[:key], req.body)
+    res.return(201, { "Content-Type" => "text/plain" }, "Stored\n")
+  end
+
   get "/assets/*" do |req, res|
     fetch_assets
   end
