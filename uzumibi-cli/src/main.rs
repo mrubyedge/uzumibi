@@ -394,7 +394,10 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
                     "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
                 );
                 println!(
-                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Cloudflare KV"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::LegacyKV.get(key)\x1b[0m / \x1b[36mUzumibi::LegacyKV.set(key, value)\x1b[0m → Durable Object storage"
                 );
                 println!(
                     "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"
@@ -407,7 +410,10 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
                     "    • \x1b[36mUzumibi::Fetch.fetch(url, method, body)\x1b[0m → Uzumibi::Response"
                 );
                 println!(
-                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Durable Object storage"
+                    "    • \x1b[36mUzumibi::KV.get(key)\x1b[0m / \x1b[36mUzumibi::KV.set(key, value)\x1b[0m → Cloudflare KV"
+                );
+                println!(
+                    "    • \x1b[36mUzumibi::LegacyKV.get(key)\x1b[0m / \x1b[36mUzumibi::LegacyKV.set(key, value)\x1b[0m → Durable Object storage"
                 );
                 println!(
                     "    • \x1b[36mUzumibi::Queue.send(queue_name, message)\x1b[0m → Cloudflare Queue"
