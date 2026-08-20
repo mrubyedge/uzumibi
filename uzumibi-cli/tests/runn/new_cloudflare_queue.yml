@@ -1,0 +1,86 @@
+desc: Test uzumibi new command with Cloudflare Queue template
+runners:
+  req: http://127.0.0.1:8787
+vars:
+  binary: ${UZUMIBI_TEST_BINARY:-../target/release/uzumibi}
+  tmpdir: ${UZUMIBI_TEST_TMPDIR:-../tmp}
+  project_name: ${UZUMIBI_PROJECT_NAME:-test-cloudflare-queue-project}
+steps:
+  build:
+    desc: Build release binary
+    exec:
+      command: cargo build --release --quiet
+    test: current.exit_code == 0
+
+  setup_tmpdir:
+    desc: Setup temp directory
+    exec:
+      command: mkdir -p {{ vars.tmpdir }}
+    test: current.exit_code == 0
+
+  cleanup_before:
+    desc: Clean up existing test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    test: current.exit_code == 0
+
+  create_project:
+    desc: Create new Cloudflare Queue project
+    exec:
+      command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t cloudflare --features queue {{ vars.project_name }}
+    test: |
+      current.exit_code == 0 &&
+      current.stdout contains 'Successfully created project'
+
+  check_queue_files:
+    desc: Check Queue-specific files and configuration
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && test -f lib/consumer.rb && grep -q '"consumers"' wrangler.jsonc && node -e 'const p = require("./package.json"); if (p.uzumibi.httpMaxBytes !== 65536 || !p.scripts["build:wasm:queue"]) process.exit(1)'
+    test: current.exit_code == 0
+
+  pnpm_install:
+    desc: Install Node.js dependencies
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && pnpm install
+    test: current.exit_code == 0
+
+  build_queue_wasm:
+    desc: Build and asyncify the Queue WASM app
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && pnpm run build:wasm:queue
+    test: current.exit_code == 0
+
+  start_server:
+    desc: Start Queue Worker dev server in background
+    exec:
+      command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && pnpm start
+      background: true
+
+  wait_for_server:
+    desc: Wait for Queue Worker to start
+    exec:
+      command: for i in $(seq 1 300); do curl -s -o /dev/null http://127.0.0.1:8787 && exit 0; sleep 0.1; done; exit 1
+    test: current.exit_code == 0
+
+  test_http_endpoint:
+    desc: Confirm Queue Worker rejects ordinary HTTP requests
+    req:
+      "/":
+        get:
+          body: null
+    test: |
+      current.res.status == 400 &&
+      current.res.rawBody contains 'queue processing'
+
+  kill_server:
+    desc: Kill dev server
+    exec:
+      command: kill -INT $(ps -ef | grep 'wrangler.js de[v]' | awk '{print $2}') || true
+    test: current.exit_code == 0
+
+  cleanup_after:
+    desc: Clean up test directory
+    exec:
+      command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
+    dump: steps
+    test: current.exit_code == 0
