@@ -2,9 +2,13 @@
 	"name": "$$PROJECT_NAME$$",
 	"version": "0.0.0",
 	"private": true,
+	"uzumibi": {
+		"httpMaxBytes": 65536
+	},
 	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "cargo build --package $$PROJECT_NAME$$ --target wasm32-unknown-unknown --release && cp -v -f target/wasm32-unknown-unknown/release/$$PROJECT_NAME_UNDERSCORE$$.wasm src/ && wrangler dev",
+		"deploy": "pnpm run build:wasm:vanilla && wrangler deploy",
+		"dev": "pnpm run build:wasm:vanilla && wrangler dev",
+		"build:wasm:vanilla": "node scripts/build-wasm.mjs vanilla",
 		"start": "wrangler dev",
 		"test": "vitest"
 	},
