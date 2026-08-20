@@ -189,6 +189,20 @@ export default {
 					return 0;
 				},
 
+				// Secret.get(key) -> secret value from env bindings
+				uzumibi_cf_secret_get: (keyPtr, keySize, resultPtr, resultMaxSize) => {
+					const memory = exports.memory;
+					const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
+					const value = env[key];
+					if (value === undefined || value === null) {
+						return -1;
+					}
+					const valueBytes = encoder.encode(String(value));
+					const length = Math.min(valueBytes.length, resultMaxSize);
+					new Uint8Array(memory.buffer, resultPtr, resultMaxSize).set(valueBytes.slice(0, length));
+					return length;
+				},
+
 				// Queue.send(queue_name, message)
 				uzumibi_cf_queue_send: async (queueNamePtr, queueNameSize, messagePtr, messageSize) => {
 					const memory = exports.memory;
