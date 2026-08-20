@@ -1,8 +1,10 @@
 # Best Practices
 
-1. **Always return `res`**: Make sure to return the response object from every route handler
-2. **Set Content-Type**: Always set appropriate `Content-Type` header
-3. **Use appropriate status codes**: Return correct HTTP status codes for different scenarios
-4. **Validate input**: Check and validate request parameters and body
-5. **Keep routes simple**: Complex logic should be extracted into helper methods or classes
-6. **Use debug_console carefully**: Excessive logging can impact performance
+- Set `status_code`, `headers`, and `body` on every successful route, or use `res.return`.
+- Use `req.raw_body` when you need the original bytes rather than adapter-assisted parsing.
+- Check the type of `req.body` before treating it as parsed JSON.
+- Keep platform service calls behind small application methods so platform dependencies stay visible.
+- Restart the generated development command after changing embedded Ruby code.
+- Keep request-size configuration proportional to the platform memory available.
+- Test generated projects with the same feature overlay used in deployment.
+- Treat provider limits and Wrangler configuration as external, versioned dependencies.

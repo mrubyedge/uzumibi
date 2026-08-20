@@ -42,7 +42,7 @@ class App < Uzumibi::Router
   # Handle errors in route
   post "/api/data" do |req, res|
     begin
-      data = JSON.parse(req.body)
+      data = JSON.parse(req.raw_body)
       
       # Process data...
       

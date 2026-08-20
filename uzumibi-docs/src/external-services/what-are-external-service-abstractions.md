@@ -1,24 +1,23 @@
-# What are External Service Abstractions?
+# How Platform Service APIs Work
 
-External Service Abstractions are unified APIs that allow your Uzumibi application to access platform-specific services (like key-value stores, caches, databases, etc.) through a common interface. This abstraction layer enables you to write code once and deploy to multiple platforms without platform-specific modifications.
+WebAssembly code cannot directly call JavaScript promises or provider SDKs. Uzumibi adapter crates define Ruby methods and Wasm imports; the generated host implements those imports with the platform’s native APIs.
 
-Each edge platform provides different services with different APIs:
-- Cloudflare Workers has KV, R2, Durable Objects
-- Fastly Compute has KV Store, Edge Dictionary
-- Spin has Key-Value Store, SQLite
-- Cloud Run can access Google Cloud services
+For Cloudflare Workers:
 
-External Service Abstractions provide a unified Ruby API that translates to the appropriate platform-specific implementation at runtime.
+~~~text
+Ruby API
+   |
+uzumibi-cloudflare-ext
+   |
+Wasm import
+   |
+generated src/index.js
+   |
+Workers API or binding
+~~~
 
-### Benefits
+Cloudflare operations such as outbound fetch, KV access, and Queue sends are asynchronous. The `enable-external` build applies Asyncify with `wasm-opt` and uses `asyncify-wasm` so the Ruby call can suspend while JavaScript awaits the Workers API.
 
-- **Write Once, Deploy Anywhere**: Same code works across platforms
-- **Platform Independence**: Switch platforms without rewriting service access code
-- **Consistent API**: Familiar Ruby interface regardless of underlying platform
-- **Type Safety**: Well-defined interfaces reduce errors
+The base Cloudflare HTTP template does not enable those asynchronous imports. The `queue` feature enables the external Rust feature as part of the Queue build.
 
-### Status
-
-**Current Status**: TBA (To Be Announced)
-
-The External Service Abstractions layer is currently under development. The following sections describe the planned architecture and APIs.
+API names can be shared by another adapter, but their exact provider semantics and configuration may differ. Treat each platform guide as the compatibility contract.

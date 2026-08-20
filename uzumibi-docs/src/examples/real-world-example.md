@@ -62,7 +62,7 @@ class App < Uzumibi::Router
   # Create post
   post "/api/posts" do |req, res|
     begin
-      data = JSON.parse(req.body)
+      data = JSON.parse(req.raw_body)
       
       if !data["title"] || data["title"].empty?
         res.status_code = 400

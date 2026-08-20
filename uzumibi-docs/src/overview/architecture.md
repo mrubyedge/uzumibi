@@ -1,51 +1,42 @@
 # Architecture
 
-Uzumibi's architecture consists of several key components:
+Uzumibi separates the Ruby application from the platform-specific host.
 
-### Core Components
+~~~text
+HTTP request or platform event
+            |
+            v
+Platform adapter (JavaScript or Rust)
+            |
+     compact byte buffer
+            |
+            v
+Wasm module
+  + mruby/edge VM
+  + uzumibi-gem
+  + embedded Ruby bytecode
+            |
+            v
+Ruby Router or Queue Consumer
+~~~
 
-```
-┌─────────────────────────────────────────┐
-│         Edge Platform                   │
-│  (Cloudflare Workers, Fastly, Spin)    │
-└─────────────┬───────────────────────────┘
-              │
-              │ HTTP Request
-              ▼
-┌─────────────────────────────────────────┐
-│     Platform-Specific Runtime           │
-│  (WASM Host Environment)                │
-└─────────────┬───────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────┐
-│      Uzumibi WASM Module                │
-│  ┌───────────────────────────────────┐  │
-│  │    mruby/edge Runtime             │  │
-│  │  ┌─────────────────────────────┐  │  │
-│  │  │   Your Ruby Application     │  │  │
-│  │  │   (Uzumibi::Router)         │  │  │
-│  │  └─────────────────────────────┘  │  │
-│  └───────────────────────────────────┘  │
-└─────────────┬───────────────────────────┘
-              │
-              │ HTTP Response
-              ▼
-```
+## Build time
 
-### Component Layers
+The generated Rust build script compiles the Ruby source into mruby bytecode and embeds it in the Wasm module or native application. Changing Ruby code therefore requires a rebuild.
 
-1. **uzumibi-cli**: Command-line tool for generating project scaffolds
-2. **uzumibi-gem**: Core framework providing the Router class and request/response handling
-3. **uzumibi-art-router**: Lightweight router library for path matching and parameter extraction
-4. **mruby/edge**: Ruby runtime optimized for edge computing
-5. **Platform Adapters**: Platform-specific code for each edge provider
+## Runtime
 
-### Request Flow
+For HTTP applications, the platform adapter serializes the request method, path, query string, selected headers, and body into a buffer. `uzumibi-gem` constructs an `Uzumibi::Request`, dispatches the matching route, and serializes the returned `Uzumibi::Response`.
 
-1. HTTP request arrives at the edge platform
-2. Platform routes to WASM module
-3. Request data is serialized and passed to mruby/edge
-4. Your Router class processes the request
-5. Response is generated and serialized
-6. Platform sends HTTP response to client
+The transport is implemented separately for each template:
+
+- Cloudflare Workers uses a JavaScript Worker around a `wasm32-unknown-unknown` module.
+- Fastly and Spin run WASI-oriented Rust adapters.
+- Cloud Run runs a native Rust HTTP server.
+- Service Worker and Web Worker templates use browser JavaScript hosts.
+
+## Optional host calls
+
+Some operations require calling back from Wasm into the host. On Cloudflare, the `enable-external` and `queue` features build the Wasm module with Asyncify so Ruby code can wait for asynchronous Workers APIs such as `fetch`, KV, and Queues.
+
+These APIs are platform adapter features, not universal `uzumibi-gem` APIs.

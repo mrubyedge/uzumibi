@@ -1,31 +1,36 @@
 # Troubleshooting
 
-### Build Errors
+## Cloudflare Wasm target is missing
 
-If you encounter build errors, make sure:
+~~~bash
+rustup target add wasm32-unknown-unknown
+~~~
 
-1. The `wasm32-unknown-unknown` target is installed:
-   ```bash
-   rustup target add wasm32-unknown-unknown
-   ```
+## `wasm-opt` is not found
 
-2. For Fastly, install the `wasm32-wasi` target:
-   ```bash
-   rustup target add wasm32-wasi
-   ```
+The `enable-external` and `queue` variants apply Asyncify and require Binaryen:
 
-### Ruby Code Not Updating
+~~~bash
+brew install binaryen
+wasm-opt --version
+~~~
 
-The Ruby code is compiled at build time. After changing `lib/app.rb`, you need to rebuild the WASM module:
+## Ruby changes are not visible
 
-```bash
-cargo build --target wasm32-unknown-unknown --release
-```
+Ruby bytecode is embedded at build time. Stop Wrangler and rerun:
 
-### WASM Module Too Large
+~~~bash
+pnpm run dev
+~~~
 
-To reduce WASM module size:
+## Wrangler rejects a placeholder binding
 
-1. Use release builds (already configured)
-2. Strip debug symbols (already configured)
-3. Minimize Ruby code and dependencies
+Feature templates include values such as `<YOUR_KV_NAMESPACE_ID>`. Create or select the Cloudflare resource and replace the placeholder in `wrangler.jsonc`.
+
+## Requests return HTTP 413
+
+The Cloudflare adapter rejects an encoded request larger than `uzumibi.httpMaxBytes` in `package.json`. Increase the value and rebuild the Wasm module. The value applies to the complete encoded request, not only the body.
+
+## A route returns 404
+
+Check the HTTP method and normalized path. The base router returns `404 Not Found` when no route matches. Cloudflare also returns 404 for `/favicon.ico` before invoking Ruby.

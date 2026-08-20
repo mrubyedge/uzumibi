@@ -1,72 +1,57 @@
 # Routing
 
-Uzumibi provides a Sinatra-inspired routing DSL. Your application class should inherit from `Uzumibi::Router`.
+Define routes as class methods on a subclass of `Uzumibi::Router`.
 
-### Defining Routes
-
-Routes are defined using HTTP method names as class methods:
-
-```ruby
+~~~ruby
 class App < Uzumibi::Router
-  get "/path" do |req, res|
-    # Handle GET request
+  get "/items" do |req, res|
+    res.return(200, { "content-type" => "text/plain" }, "items\n")
   end
 
-  post "/path" do |req, res|
-    # Handle POST request
-  end
-
-  put "/path" do |req, res|
-    # Handle PUT request
-  end
-
-  delete "/path" do |req, res|
-    # Handle DELETE request
-  end
-
-  head "/path" do |req, res|
-    # Handle HEAD request (body will be automatically cleared)
+  post "/items" do |req, res|
+    res.return(201, { "content-type" => "text/plain" }, "created\n")
   end
 end
-```
 
-### Path Parameters
+$APP = App.new
+~~~
 
-You can define dynamic path segments using the `:param` syntax:
+The router supports `get`, `post`, `put`, `delete`, `head`, and `options`.
 
-```ruby
-class App < Uzumibi::Router
-  get "/users/:id" do |req, res|
-    user_id = req.params[:id]
-    res.status_code = 200
-    res.headers = { "Content-Type" => "text/plain" }
-    res.body = "User ID: #{user_id}"
-    res
-  end
+## Named parameters
 
-  get "/posts/:post_id/comments/:comment_id" do |req, res|
-    post_id = req.params[:post_id]
-    comment_id = req.params[:comment_id]
-    res.status_code = 200
-    res.body = "Post: #{post_id}, Comment: #{comment_id}"
-    res
-  end
+~~~ruby
+get "/users/:user_id/posts/:post_id" do |req, res|
+  user_id = req.params[:user_id]
+  post_id = req.params[:post_id]
+  res.return(200, {}, "#{user_id}/#{post_id}")
 end
-```
+~~~
 
-### Query Parameters
+## Wildcards
 
-Query parameters are automatically parsed and available in `req.params`:
+A trailing `*` captures the remaining path in `req.params[:"*"]`:
 
-```ruby
+~~~ruby
+get "/assets/*" do |req, res|
+  path = req.params[:"*"]
+  res.return(200, {}, path)
+end
+~~~
+
+## Query parameters
+
+Query parameters are merged into `req.params` as Symbol keys:
+
+~~~ruby
 get "/search" do |req, res|
   query = req.params[:q]
-  page = req.params[:page] || "1"
-  
-  res.status_code = 200
-  res.body = "Search: #{query}, Page: #{page}"
-  res
+  res.return(200, {}, query || "")
 end
-```
+~~~
 
-For a request to `/search?q=ruby&page=2`, `req.params` will contain both `:q` and `:page`.
+The current query parser is intentionally small: it splits `&` and `=` pairs and does not URL-decode them. Form-urlencoded request bodies use a separate percent-decoding parser.
+
+## HEAD and missing routes
+
+A HEAD request uses the GET router for the same path and clears the response body after the handler runs. If no method/path pair matches, Uzumibi returns status 404 with body `Not Found`.

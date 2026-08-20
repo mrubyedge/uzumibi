@@ -1,43 +1,44 @@
 # Introduction
 
-Welcome to the Uzumibi documentation!
+Uzumibi lets you write request handlers in Ruby for WebAssembly-based edge and serverless runtimes.
 
-Uzumibi is a lightweight web application framework for embedding MRuby into edge computing platforms like Cloudflare Workers, Fastly Compute@Edge, Spin, and more. It allows developers to write serverless applications using Ruby, leveraging the power of MRuby for efficient execution in constrained environments.
+An Uzumibi application has three main parts:
 
-## Quick Example
+1. Ruby application code, normally `lib/app.rb`
+2. The mruby/edge runtime and Uzumibi framework, compiled into a Wasm module
+3. A platform adapter that transfers requests, responses, and optional host services between the platform and Wasm
 
-Here's a simple example of an Uzumibi application:
+Ruby code is compiled to mruby bytecode during the application build. It is not loaded from the filesystem at request time.
 
-```ruby
+## Minimal application
+
+~~~ruby
 class App < Uzumibi::Router
   get "/" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "content-type" => "text/plain",
-      "x-powered-by" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
-    }
-    res.body = "Hello from Uzumibi!"
-    res
-  end
-
-  get "/greet/:name" do |req, res|
-    res.status_code = 200
-    res.headers = { "content-type" => "text/plain" }
-    res.body = "Hello, #{req.params[:name]}!"
-    res
+    res.return(
+      200,
+      { "content-type" => "text/plain" },
+      "Hello from Uzumibi!\n"
+    )
   end
 end
 
 $APP = App.new
-```
+~~~
 
-## Why Uzumibi?
+`Uzumibi::Router` dispatches by HTTP method and path. A handler receives an `Uzumibi::Request` and `Uzumibi::Response` and mutates the response. Ending the handler with `res` is the conventional style.
 
-- **Ruby on the Edge**: Write edge functions in Ruby instead of JavaScript
-- **Lightweight**: Built on mruby/edge, optimized for WebAssembly and constrained environments
-- **Multi-platform**: Deploy to Cloudflare Workers, Fastly Compute, Spin, and more
-- **Simple API**: Familiar Sinatra-like routing DSL
+## What the CLI provides
 
-## Get Started
+The `uzumibi` CLI generates complete, platform-specific projects. The generated build and development commands differ by template; the CLI itself currently only provides the `new` command.
 
-Head over to the [Installation and Getting Started](./installation.md) guide to begin building with Uzumibi!
+For Cloudflare Workers, the generated project uses pnpm and Wrangler:
+
+~~~bash
+uzumibi new --template cloudflare my-app
+cd my-app
+pnpm install
+pnpm run dev
+~~~
+
+Continue with [Installation and Getting Started](./installation.md), or see the [Cloudflare Workers guide](./platforms/cloudflare-workers.md).

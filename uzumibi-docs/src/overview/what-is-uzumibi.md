@@ -1,10 +1,15 @@
 # What is Uzumibi?
 
-Uzumibi is a lightweight web application framework designed for edge computing platforms. The name "Uzumibi" (うずみび) is a Japanese term that refers to live embers buried under a layer of ash to keep the fire from going out. This metaphor represents how Uzumibi keeps Ruby alive in the constrained environments of edge computing.
+Uzumibi is a small Ruby HTTP framework plus a set of adapters and project templates for edge and serverless platforms.
 
-The framework enables developers to:
+The core framework provides:
 
-- Write serverless applications in Ruby for edge platforms
-- Deploy to multiple edge providers (Cloudflare Workers, Fastly Compute, Spin, etc.)
-- Build high-performance applications optimized for WebAssembly
-- Use a familiar Sinatra-like routing DSL
+- routing for `GET`, `POST`, `PUT`, `DELETE`, `HEAD`, and `OPTIONS`
+- named path parameters and wildcard routes
+- request objects containing method, path, headers, parameters, cookies, and body data
+- response objects containing a status code, headers, and a String body
+- a compact binary protocol used by platform adapters to exchange HTTP data with Wasm
+
+Platform-specific functionality is provided by the generated template and adapter crates. It is not guaranteed to be portable between templates. For example, the Cloudflare template can optionally expose Workers KV, Durable Objects, outbound fetch, secrets, Access identity, and Queues.
+
+The name “Uzumibi” (うずみび) refers to live embers kept under ash so that the fire does not go out.

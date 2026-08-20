@@ -1,119 +1,49 @@
 # Commands
 
-### `uzumibi new`
+The current CLI has one subcommand: `uzumibi new`.
 
-Create a new edge application project from a template.
+## `uzumibi new`
 
-#### Synopsis
+~~~text
+uzumibi new [OPTIONS] --template <TEMPLATE> <PROJECT_NAME>
+~~~
 
-```bash
-uzumibi new --template <TEMPLATE> <PROJECT_NAME>
-```
+### Arguments and options
 
-#### Arguments
+| Argument or option | Description |
+| --- | --- |
+| `<PROJECT_NAME>` | Project name used in generated files and, by default, as the destination directory |
+| `-t, --template <TEMPLATE>` | Required template name |
+| `-d, --dest-dir <DEST_DIR>` | Write to a directory other than `PROJECT_NAME` |
+| `--force` | Overwrite existing files without prompting |
+| `--features <FEATURES>` | Comma-separated feature overlays |
 
-- `<PROJECT_NAME>`: The name of your project. This will be used as the directory name.
+Available templates are `cloudflare`, `cloudrun`, `fastly`, `spin`, `serviceworker`, and `webworker`.
 
-#### Options
+Currently defined feature overlays are:
 
-- `-t, --template <TEMPLATE>`: The platform template to use. **Required.**
+| Template | Feature | Purpose |
+| --- | --- | --- |
+| `cloudflare` | `enable-external` | Async Cloudflare host APIs from Ruby |
+| `cloudflare` | `queue` | Cloudflare Queues consumer; includes external APIs |
+| `cloudrun` | `enable-external` | Google Cloud external-service APIs |
+| `cloudrun` | `queue` | Pub/Sub push consumer |
 
-#### Available Templates
+### Examples
 
-| Template | Description | Status |
-|----------|-------------|--------|
-| `cloudflare` | Cloudflare Workers | Stable |
-| `fastly` | Fastly Compute@Edge | Stable |
-| `spin` | Spin (Fermyon) | Stable |
-| `cloudrun` | Google Cloud Run | Experimental |
-
-#### Examples
-
-Create a Cloudflare Workers project:
-
-```bash
+~~~bash
 uzumibi new --template cloudflare my-worker
-```
+uzumibi new -t cloudflare --features enable-external my-worker
+uzumibi new -t cloudflare --features queue queue-consumer
+uzumibi new -t cloudflare --dest-dir ./apps/worker my-worker
+~~~
 
-Create a Fastly Compute project:
+When files already exist and `--force` is not supplied, the CLI shows a diff and prompts for each conflicting file.
 
-```bash
-uzumibi new --template fastly my-compute-app
-```
+## Help and version
 
-Create a Spin project:
-
-```bash
-uzumibi new --template spin my-spin-app
-```
-
-Create a Cloud Run project:
-
-```bash
-uzumibi new --template cloudrun my-cloudrun-app
-```
-
-#### What Gets Created
-
-The `uzumibi new` command generates a complete project structure including:
-
-- **Cargo.toml**: Rust workspace configuration
-- **build.rs**: Build script that compiles Ruby to mruby bytecode
-- **lib/app.rb**: Your Ruby application code (main entry point)
-- **src/**: Platform-specific Rust/JavaScript code
-- Platform-specific configuration files:
-  - `wrangler.jsonc` (Cloudflare)
-  - `fastly.toml` (Fastly)
-  - `spin.toml` (Spin)
-  - `Dockerfile` (Cloud Run)
-
-Example project structure for Cloudflare Workers:
-
-```
-my-worker/
-├── Cargo.toml
-├── package.json
-├── pnpm-lock.yaml
-├── wrangler.jsonc
-├── lib/
-│   └── app.rb
-├── src/
-│   └── index.js
-└── wasm-app/
-    ├── Cargo.toml
-    ├── build.rs
-    └── src/
-        └── lib.rs
-```
-
-### `uzumibi --help`
-
-Display help information:
-
-```bash
+~~~bash
 uzumibi --help
-```
-
-Output:
-
-```
-Uzumibi CLI - Create a new edge application project powered by Ruby
-
-Usage: uzumibi <COMMAND>
-
-Commands:
-  new   Create a new edge application project
-  help  Print this message or the help of the given subcommand(s)
-
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
-```
-
-### `uzumibi --version`
-
-Display the CLI version:
-
-```bash
+uzumibi new --help
 uzumibi --version
-```
+~~~

@@ -1,11 +1,16 @@
 # Platform Comparison
 
-| Feature | Cloudflare Workers | Fastly Compute | Spin | Cloud Run | Service Worker |
-|---------|-------------------|----------------|------|-----------|----------------|
-| **Execution Model** | V8 Isolates | WASI | WASI | Container | Browser |
-| **Cold Start** | Very Fast | Very Fast | Fast | Slower | N/A |
-| **Max Execution Time** | 50ms-30s | 60s | Varies | 60min | Varies |
-| **Memory Limit** | 128MB | 128-512MB | Varies | 4GB+ | Browser |
-| **Global Distribution** | Yes | Yes | Platform-dependent | Regional | N/A |
-| **Cost Model** | Per-request | Per-request | Platform-dependent | Per-request + compute | Free |
-| **Maturity** | Stable | Stable | Stable | Experimental | Experimental |
+This table describes the current Uzumibi templates. It does not attempt to reproduce provider pricing or runtime limits, which change independently of Uzumibi.
+
+| Template | Generated host | Ruby HTTP routing | Optional service APIs | Event consumer |
+| --- | --- | --- | --- | --- |
+| `cloudflare` | JavaScript Worker + Wasm | Yes | `enable-external` | Cloudflare Queues with `queue` |
+| `cloudrun` | Native Rust service + Docker | Yes | `enable-external` | Pub/Sub push with `queue` |
+| `fastly` | Fastly Compute Rust app | Yes | No feature overlay | No |
+| `spin` | Spin component | Yes | No feature overlay | No |
+| `serviceworker` | Browser Service Worker + Wasm | Yes | No feature overlay | No |
+| `webworker` | Browser Web Worker + Wasm | Yes | No feature overlay | No |
+
+“Optional service APIs” means APIs implemented by that template’s adapter. Identical Ruby class names on different platforms can map to different provider services and are not a promise of full portability.
+
+For provider limits and availability, consult the provider’s current documentation.

@@ -39,7 +39,7 @@ class App < Uzumibi::Router
   # Create item
   post "/api/items" do |req, res|
     begin
-      data = JSON.parse(req.body)
+      data = JSON.parse(req.raw_body)
       
       # Validate
       if !data["name"] || data["name"].empty?
@@ -69,7 +69,7 @@ class App < Uzumibi::Router
     item_id = req.params[:id].to_i
     
     begin
-      data = JSON.parse(req.body)
+      data = JSON.parse(req.raw_body)
       
       res.status_code = 200
       res.headers = { "Content-Type" => "application/json" }

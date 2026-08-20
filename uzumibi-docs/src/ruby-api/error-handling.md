@@ -1,29 +1,29 @@
 # Error Handling
 
-If a route is not found, Uzumibi automatically returns a 404 response:
+When no route matches, Uzumibi constructs:
 
-```
-Status: 404 Not Found
-Body: "Not Found"
-```
+- status: 404
+- content type: `text/plain; charset=utf-8`
+- body: `Not Found`
 
-To handle errors in your route:
+Handle expected application errors inside the route and set a complete response:
 
-```ruby
-post "/api/data" do |req, res|
-  begin
-    data = JSON.parse(req.body)
-    # Process data...
-    
-    res.status_code = 200
-    res.body = "Success"
-  rescue JSON::ParserError => e
-    res.status_code = 400
-    res.body = "Invalid JSON: #{e.message}"
-  rescue => e
-    res.status_code = 500
-    res.body = "Error: #{e.message}"
+~~~ruby
+post "/items" do |req, res|
+  if req.body.is_a?(Hash) && req.body["name"]
+    res.return(
+      201,
+      { "content-type" => "application/json" },
+      JSON.generate({ "created" => req.body["name"] })
+    )
+  else
+    res.return(
+      400,
+      { "content-type" => "application/json" },
+      JSON.generate({ "error" => "name is required" })
+    )
   end
-  res
 end
-```
+~~~
+
+An unhandled Ruby or adapter error crosses the Wasm boundary as a runtime error. The exact HTTP response and logging behavior then depend on the platform host; Uzumibi does not currently provide a global Ruby error-handler DSL.

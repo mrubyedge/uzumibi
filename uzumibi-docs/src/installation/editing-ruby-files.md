@@ -1,35 +1,30 @@
 # Editing Ruby Files
 
-Open `lib/app.rb` and define your routes:
+For an HTTP application, edit `lib/app.rb`:
 
-```ruby
+~~~ruby
 class App < Uzumibi::Router
   get "/" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "Content-Type" => "text/plain",
-      "X-Powered-By" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
-    }
-    res.body = "Hello from Uzumibi on the edge!\n"
-    res
+    res.return(
+      200,
+      { "content-type" => "text/plain" },
+      "Hello from Uzumibi!\n"
+    )
   end
 
-  get "/hello/:name" do |req, res|
+  post "/echo/:name" do |req, res|
     res.status_code = 200
-    res.headers = { "Content-Type" => "text/plain" }
-    res.body = "Hello, #{req.params[:name]}!\n"
-    res
-  end
-
-  post "/data" do |req, res|
-    res.status_code = 200
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ received: req.body })
+    res.headers = { "content-type" => "text/plain" }
+    res.body = "#{req.params[:name]}: #{req.raw_body}\n"
     res
   end
 end
 
 $APP = App.new
-```
+~~~
 
-The Ruby code is compiled to mruby bytecode during the build process and embedded into the WASM module.
+Each route must set the response status, headers, and body. Ending with `res` is the conventional style. `res.return(status, headers, body)` is a convenience method that sets all three fields and returns `res`.
+
+For a Queue consumer generated with `--features queue`, edit `lib/consumer.rb` and keep the generated `$CONSUMER` global.
+
+Ruby source is compiled to mruby bytecode during the build. The generated development command rebuilds it automatically when the command is restarted.

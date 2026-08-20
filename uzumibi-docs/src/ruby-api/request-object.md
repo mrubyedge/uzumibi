@@ -1,90 +1,51 @@
 # Request Object
 
-The request object (`req`) provides access to all request data.
+Route handlers receive an `Uzumibi::Request` as `req`.
 
-### Properties
+| Property | Value |
+| --- | --- |
+| `req.method` | HTTP method String |
+| `req.path` | Request pathname |
+| `req.headers` | Header Hash with String keys and values |
+| `req.params` | Path, query, and parsed body parameters with Symbol keys |
+| `req.body` | Parsed JSON value when supported, otherwise the raw body String |
+| `req.raw_body` | Raw request body as a Ruby String |
+| `req.cookie` | Parsed Cookie header as a Hash with String keys |
 
-#### `req.method`
+## Parameters
 
-The HTTP method as a string:
-
-```ruby
-get "/debug" do |req, res|
-  res.body = "Method: #{req.method}"  # => "GET"
-  res
-end
-```
-
-#### `req.path`
-
-The request path:
-
-```ruby
+~~~ruby
 get "/users/:id" do |req, res|
-  res.body = "Path: #{req.path}"  # => "/users/123"
-  res
+  id = req.params[:id]
+  verbose = req.params[:verbose]
+  res.return(200, {}, "#{id}: #{verbose}")
 end
-```
+~~~
 
-#### `req.headers`
+Path parameters are merged first, followed by query parameters and then supported body parameters. A later source replaces an earlier value with the same key.
 
-A hash of request headers (keys are lowercase):
+## JSON bodies
 
-```ruby
-get "/" do |req, res|
-  user_agent = req.headers["user-agent"]
-  content_type = req.headers["content-type"]
-  
-  res.body = "UA: #{user_agent}"
-  res
-end
-```
+When the content type is exactly `application/json` and JSON support is enabled by the template, valid JSON is assigned to `req.body`. Top-level object fields are also merged into `req.params`.
 
-#### `req.params`
-
-A hash containing both path parameters and query parameters:
-
-```ruby
-get "/greet/:name" do |req, res|
-  # For request: /greet/alice?title=Dr
-  name = req.params[:name]    # => "alice"
-  title = req.params[:title]  # => "Dr"
-  
-  res.body = "Hello, #{title} #{name}!"
-  res
-end
-```
-
-#### `req.body`
-
-The request body as a string:
-
-```ruby
-post "/data" do |req, res|
+~~~ruby
+post "/users" do |req, res|
   data = req.body
-  res.status_code = 200
-  res.body = "Received: #{data}"
-  res
+  name = data["name"]
+  res.return(
+    201,
+    { "content-type" => "application/json" },
+    JSON.generate({ "created" => name })
+  )
 end
-```
+~~~
 
-For `application/json` content type, you can parse it:
+If parsing fails, `req.body` remains the raw String. Use `req.raw_body` when the original payload is required regardless of content type.
 
-```ruby
-post "/api/users" do |req, res|
-  begin
-    data = JSON.parse(req.body)
-    name = data["name"]
-    
-    res.status_code = 201
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ created: name })
-  rescue => e
-    res.status_code = 400
-    res.body = "Invalid JSON"
-  end
-  res
-end
-```
+## Form bodies
 
-For `application/x-www-form-urlencoded` content type, form data is automatically parsed into `req.params`.
+For an exact `application/x-www-form-urlencoded` content type, decoded form fields are merged into `req.params`.
+
+## Headers
+
+Header casing and filtering depend on the platform adapter. The Cloudflare adapter currently passes lowercase Workers header names but omits `cf-connecting-ip`, `cf-ray`, and names beginning with `x-`.

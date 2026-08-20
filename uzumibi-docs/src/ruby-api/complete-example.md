@@ -1,63 +1,44 @@
 # Complete Example
 
-Here's a complete example demonstrating the API:
-
-```ruby
+~~~ruby
 class App < Uzumibi::Router
-  # Simple GET route
   get "/" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "Content-Type" => "text/plain",
-      "X-Powered-By" => "Uzumibi"
-    }
-    res.body = "Welcome to Uzumibi!"
-    res
+    res.return(
+      200,
+      { "content-type" => "text/plain" },
+      "Welcome to Uzumibi!\n"
+    )
   end
 
-  # Path parameters
   get "/users/:id" do |req, res|
-    user_id = req.params[:id]
-    res.status_code = 200
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ id: user_id, name: "User #{user_id}" })
-    res
+    res.return(
+      200,
+      { "content-type" => "application/json" },
+      JSON.generate({
+        "id" => req.params[:id],
+        "verbose" => req.params[:verbose]
+      })
+    )
   end
 
-  # Query parameters
-  get "/search" do |req, res|
-    query = req.params[:q] || ""
-    res.status_code = 200
-    res.body = "Searching for: #{query}"
-    res
+  post "/echo" do |req, res|
+    res.return(
+      200,
+      { "content-type" => "application/octet-stream" },
+      req.raw_body
+    )
   end
 
-  # POST with body
-  post "/api/data" do |req, res|
-    debug_console("[Uzumibi] Received: #{req.body}")
-    
-    res.status_code = 200
-    res.headers = { "Content-Type" => "text/plain" }
-    res.body = "Received #{req.body.size} bytes"
-    res
-  end
-
-  # Redirect
   get "/old-path" do |req, res|
-    res.status_code = 301
-    res.headers = { "Location" => "/new-path" }
-    res.body = "Moved"
-    res
-  end
-
-  # Error response
-  get "/error" do |req, res|
-    res.status_code = 500
-    res.headers = { "Content-Type" => "text/plain" }
-    res.body = "Internal Server Error"
-    res
+    res.return(
+      302,
+      { "location" => "/", "content-type" => "text/plain" },
+      "Moved\n"
+    )
   end
 end
 
 $APP = App.new
-```
+~~~
+
+The `application/octet-stream` example describes the core Ruby response. Check the selected platform adapter before relying on arbitrary binary response bytes; the current Cloudflare host text-decodes response bodies.

@@ -1,92 +1,76 @@
-Uzumibi
-==========
+# Uzumibi
 
 ![Uzumibi's Logo](./logo.png)
 
-Uzumibi is a lightweight web application framework for embedding MRuby into edge computing platforms like Cloudflare Workers, Fastly Compute@Edge, Spin and so on. It allows developers to write serverless applications using Ruby, leveraging the power of MRuby for efficient execution in constrained environments.
+Uzumibi is a Ruby web framework and project generator for WebAssembly-based edge and serverless runtimes. Ruby application code is compiled to mruby bytecode at build time and executed by [mruby/edge](https://github.com/mrubyedge/mrubyedge) inside a platform-specific host.
 
-Uzumibi uses a specialized mruby implementation [mruby/edge](https://github.com/mrubyedge/mrubyedge), which is optimized for edge computing scenarios - WebAssembly environments with limited resources.
+The `uzumibi` CLI currently provides templates for:
 
-## 👉 Documentation
+- Cloudflare Workers
+- Fastly Compute
+- Spin
+- Google Cloud Run
+- Browser Service Workers
+- Browser Web Workers
 
-- [Beginning Uzumibi](https://mrubyedge.github.io/beginning-uzumibi/) - An online book to get you up and running with Uzumibi.
-- [On GitHub Pages](https://mrubyedge.github.io/uzumibi/) - The official Uzumibi documentation, covering installation, usage, supported platforms, and more.
+## Documentation
 
-### tl;dr
+- [Beginning Uzumibi](https://mrubyedge.github.io/beginning-uzumibi/)
+- [Uzumibi documentation](https://mrubyedge.github.io/uzumibi/)
 
-Ruby code example for Uzumibi:
+## Quick start with Cloudflare Workers
 
-```ruby
+Install the CLI and the WebAssembly target:
+
+~~~bash
+cargo install uzumibi-cli
+rustup target add wasm32-unknown-unknown
+~~~
+
+Create and run a project:
+
+~~~bash
+uzumibi new --template cloudflare my-app
+cd my-app
+pnpm install
+pnpm run dev
+~~~
+
+Edit `lib/app.rb` to define routes:
+
+~~~ruby
 class App < Uzumibi::Router
   get "/" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "content-type" => "text/plain",
-      "x-powered-by" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
-    }
-    res.body = "It works!\nVisit /greet/to/:name to get greeted.\n"
-    res
-  end
-
-  get "/description" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "content-type" => "text/plain",
-    }
-    res.body = 
-      "\"Uzumibi\" is a Japanese term that refers\n" +
-      "to live embers buried under a layer of ash\n" +
-      "to keep the fire from going out.\n"
-    res
-  end
-
-  get "/greet/to/:name" do |req, res|
-    res.status_code = 200
-    res.headers = {
-      "content-type" => "text/plain",
-      "x-powered-by" => "#{RUBY_ENGINE} #{RUBY_VERSION}"
-    }
-    res.body = "Hello, #{req.params[:name]}!!\n"
-    res
+    res.return(
+      200,
+      { "content-type" => "text/plain" },
+      "Hello from #{RUBY_ENGINE} #{RUBY_VERSION}\n"
+    )
   end
 
   get "/hello/:name" do |req, res|
-    res.status_code = 302
-    res.headers = {
-      "location" => "/greet/to/#{req.params[:name]}",
-      "content-type" => "text/plain",
-    }
-    res.body = "Moved\n"
-    res
+    res.return(
+      200,
+      { "content-type" => "text/plain" },
+      "Hello, #{req.params[:name]}!\n"
+    )
   end
 end
 
 $APP = App.new
-```
+~~~
 
-...that runs on various edge platforms!!
+For Cloudflare Workers, `pnpm run dev` rebuilds the Wasm module and starts Wrangler. See the [Cloudflare Workers guide](https://mrubyedge.github.io/uzumibi/platforms/cloudflare-workers.html) for request-size configuration, external services, static assets, and Queue consumers.
 
-Crates and projects
------------------
+## Workspace components
 
-- [**uzumibi-cli**](./uzumibi-cli/) - A command-line interface tool to generate Uzumibi application scaffolds to various edge platforms.
-    - ![crates.io](https://img.shields.io/crates/v/uzumibi-cli.svg)
-- [**uzumibi-gem**](./uzumibi-gem/) - The mruby/edge gem that provides the core Uzumibi framework functionality.
-    - ![crates.io](https://img.shields.io/crates/v/uzumibi-gem.svg)
-- [**uzumibi-art-router**](./uzumibi-art-router/) - A lightweight router library for Uzumibi, providing routing capabilities for handling HTTP requests.
-    - ![crates.io](https://img.shields.io/crates/v/uzumibi-art-router.svg)
+- [`uzumibi-cli`](./uzumibi-cli/) — generates platform-specific application projects
+- [`uzumibi-gem`](./uzumibi-gem/) — defines `Uzumibi::Router`, `Request`, and `Response`
+- [`uzumibi-art-router`](./uzumibi-art-router/) — route matching and path-parameter extraction
+- [`uzumibi-cloudflare-ext`](./uzumibi-cloudflare-ext/) — Cloudflare host APIs exposed to Ruby
+- [`uzumibi-google`](./uzumibi-google/) — Google Cloud integrations used by the Cloud Run template
+- `uzumibi-on-*-spike` directories — development and integration examples for individual runtimes
 
-### Spike codes
+## How to pronounce “Uzumibi”
 
-- [**uzumibi-on-cloudflare-spike**](./uzumibi-on-cloudflare-spike/) - An Uzumibi application scaffold for Cloudflare Workers (using Wasm with some JavaScript).
-- [**uzumibi-on-cloudrun-spike**](./uzumibi-on-cloudrun-spike/) - An Uzumibi application scaffold for Google Cloud Run. Experimental.
-- [**uzumibi-on-fastly-spike**](./uzumibi-on-fastly-spike/) - An Uzumibi application scaffold for Fastly Compute@Edge.
-- [**uzumibi-on-spin-spike**](./uzumibi-on-spin-spike/) - An Uzumibi application scaffold for Spin using Fermyon Cloud.
-
-### ToDos
-
-- Support of wasmCloud
-
-## How to pronounce "Uzumibi"
-
-Uzumibi(うずみび) is pronounced as /`oo-zóo-mi-bì`/, which sounds natural when you  pronounce in relaxed oo - `ʊ`
+Uzumibi (うずみび) is pronounced roughly as “oo-zoo-mee-bee.” The Japanese word refers to live embers kept under ash so that the fire does not go out.
