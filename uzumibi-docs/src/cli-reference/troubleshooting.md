@@ -1,28 +1,30 @@
-# Troubleshooting
+# CLI Troubleshooting
 
-### "uzumibi: command not found"
+## `uzumibi: command not found`
 
-Make sure `~/.cargo/bin` is in your PATH:
+Confirm that Cargo’s binary directory is on `PATH`:
 
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-```
+~~~bash
+cargo install uzumibi-cli
+uzumibi --version
+~~~
 
-Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make it permanent.
+## Template not found
 
-### "Invalid template"
+Template names are lowercase:
 
-Check that you're using a valid template name:
-- `cloudflare`
-- `fastly`
-- `spin`
-- `cloudrun`
+~~~text
+cloudflare, cloudrun, fastly, spin, serviceworker, webworker
+~~~
 
-Template names are case-sensitive and must be lowercase.
+The CLI prints the available template names when a requested template does not exist.
 
-### "Directory already exists"
+## Existing files
 
-The CLI won't overwrite existing directories. Either:
-1. Choose a different project name
-2. Remove the existing directory
-3. Use a different location
+The CLI can generate into an existing directory. Without `--force`, it displays a diff and asks whether to overwrite, skip, or abort for each conflict.
+
+Use `--dest-dir` to choose a separate destination, or `--force` only when replacing existing files is intentional.
+
+## A feature appears to have no effect
+
+Feature names select template overlay directories. Use only features documented for the selected template; an unknown name does not create an overlay.

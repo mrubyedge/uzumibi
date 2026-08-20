@@ -39,12 +39,11 @@
   - [Platform Comparison](./platforms/platform-comparison.md)
   - [Choosing a Platform](./platforms/choosing-a-platform.md)
 
-- [External Service Abstractions](./external-services.md)
-  - [What are External Service Abstractions?](./external-services/what-are-external-service-abstractions.md)
+- [Platform Service APIs](./external-services.md)
+  - [How Platform Service APIs Work](./external-services/what-are-external-service-abstractions.md)
   - [Available Services](./external-services/available-services.md)
-  - [Platform Support Matrix](./external-services/platform-support-matrix.md)
-  - [Usage Examples](./external-services/usage-examples.md)
-  - [Development Roadmap](./external-services/development-roadmap.md)
+  - [Feature Support Matrix](./external-services/platform-support-matrix.md)
+  - [Cloudflare Usage Examples](./external-services/usage-examples.md)
   - [Contributing](./external-services/contributing.md)
 
 # Reference
@@ -56,7 +55,6 @@
   - [Common Workflows](./cli-reference/common-workflows.md)
   - [Troubleshooting](./cli-reference/troubleshooting.md)
   - [Environment Variables](./cli-reference/environment-variables.md)
-  - [Future Commands](./cli-reference/future-commands.md)
   - [Updating the CLI](./cli-reference/updating-the-cli.md)
   - [Getting Help](./cli-reference/getting-help.md)
 

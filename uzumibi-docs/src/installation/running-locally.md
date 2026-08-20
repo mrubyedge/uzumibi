@@ -1,48 +1,22 @@
 # Running Locally
 
-### Cloudflare Workers
+## Cloudflare Workers
 
-First, build the WASM module:
+From a generated Cloudflare project:
 
-```bash
-cd wasm-app
-cargo build --target wasm32-unknown-unknown --release
-cd ..
-```
+~~~bash
+pnpm install
+pnpm run dev
+~~~
 
-Copy the WASM file to the appropriate location:
+`pnpm run dev` runs the template’s Wasm build script and then starts Wrangler. The default local URL is printed by Wrangler, normally `http://localhost:8787`.
 
-```bash
-cp target/wasm32-unknown-unknown/release/uzumibi_cloudflare_app.wasm public/app.wasm
-```
+After changing `lib/app.rb`, `lib/consumer.rb`, a Rust dependency, or `package.json` build configuration, stop and rerun `pnpm run dev` so the Wasm module is rebuilt.
 
-Then start the development server:
+Use `pnpm start` only when the Wasm output already exists and you intentionally want to start Wrangler without rebuilding.
 
-```bash
-npx wrangler dev
-```
+The `enable-external` and `queue` variants require `wasm-opt`. They may also require valid KV, Durable Object, or Queue bindings in `wrangler.jsonc`.
 
-Your application will be available at `http://localhost:8787`.
+## Other templates
 
-### Fastly Compute
-
-Build the project:
-
-```bash
-cargo build --target wasm32-wasi --release
-```
-
-Run locally:
-
-```bash
-fastly compute serve
-```
-
-### Spin
-
-Build and run:
-
-```bash
-spin build
-spin up
-```
+Generated commands differ by platform. Run `uzumibi new` and follow the “Next steps” printed by the CLI, then consult the generated configuration files.

@@ -1,94 +1,29 @@
 # Project Templates
 
-### Cloudflare Workers Template
+Each template is a complete platform adapter, not only a deployment configuration.
 
-Files included:
-- `wrangler.jsonc`: Wrangler configuration
-- `package.json`: Node.js dependencies (for Wrangler)
-- `src/index.js`: JavaScript entry point
-- `wasm-app/`: Rust WASM module source
+| Template | Host |
+| --- | --- |
+| `cloudflare` | Cloudflare Workers JavaScript host plus a Rust Wasm crate |
+| `cloudrun` | Native Rust HTTP server packaged with Docker |
+| `fastly` | Fastly Compute Rust application |
+| `spin` | Spin component |
+| `serviceworker` | Browser Service Worker example |
+| `webworker` | Browser Web Worker example |
 
-Build with:
-```bash
-cd wasm-app
-cargo build --target wasm32-unknown-unknown --release
-```
+The CLI replaces project-name placeholders while copying the selected template. A feature is an overlay that replaces or adds files after the base template is copied.
 
-Run locally:
-```bash
-npx wrangler dev
-```
+## Cloudflare build scripts
 
-Deploy:
-```bash
-npx wrangler deploy
-```
+A generated Cloudflare project provides:
 
-### Fastly Compute Template
+| Script | Behavior |
+| --- | --- |
+| `pnpm run dev` | Build the selected Wasm mode and run Wrangler |
+| `pnpm run deploy` | Build the selected Wasm mode and deploy with Wrangler |
+| `pnpm start` | Run Wrangler without rebuilding |
+| `pnpm test` | Run the JavaScript tests with Vitest |
 
-Files included:
-- `fastly.toml`: Fastly service configuration
-- `Cargo.toml`: Rust project configuration
-- `src/main.rs`: Application entry point
-- `src/lib.rs`: WASM module
+The exact Wasm build script name depends on the selected feature: `build:wasm:vanilla`, `build:wasm:asyncify`, or `build:wasm:queue`.
 
-Build with:
-```bash
-cargo build --target wasm32-wasi --release
-```
-
-Run locally:
-```bash
-fastly compute serve
-```
-
-Deploy:
-```bash
-fastly compute deploy
-```
-
-### Spin Template
-
-Files included:
-- `spin.toml`: Spin application manifesthown
-- `Cargo.toml`: Rust project configuration
-- `src/lib.rs`: Application entry point
-
-Build with:
-```bash
-spin build
-```
-
-Run locally:
-```bash
-spin up
-```
-
-Deploy:
-```bash
-spin deploy
-```
-
-### Cloud Run Template
-
-Files included:
-- `Dockerfile`: Container image definition
-- `Cargo.toml`: Rust project configuration
-- `src/main.rs`: HTTP server entry point
-- `src/uzumibi.rs`: Uzumibi integration
-
-Build with:
-```bash
-cargo build --release
-```
-
-Run locally:
-```bash
-cargo run
-```
-
-Deploy:
-```bash
-gcloud builds submit --tag gcr.io/PROJECT_ID/app
-gcloud run deploy --image gcr.io/PROJECT_ID/app
-```
+See [Cloudflare Workers](../platforms/cloudflare-workers.md) for the generated layout and configuration.

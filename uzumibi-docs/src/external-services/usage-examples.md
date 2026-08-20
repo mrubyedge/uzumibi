@@ -1,111 +1,83 @@
-# Usage Examples
+# Cloudflare Usage Examples
 
-### Example 1: KV-Backed API
+These examples require a project generated with `--features enable-external` unless noted otherwise.
 
-```ruby
+## KV-backed counter
+
+~~~ruby
 class App < Uzumibi::Router
   get "/counter" do |req, res|
-    # Get current count
-    count = Uzumibi::KV.get("counter")
-    count = count ? count.to_i : 0
-    
-    res.status_code = 200
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ count: count })
-    res
+    count = (Uzumibi::KV.get("counter") || "0").to_i
+    res.return(
+      200,
+      { "content-type" => "application/json" },
+      JSON.generate({ "count" => count })
+    )
   end
-  
+
   post "/counter/increment" do |req, res|
-    # Increment counter
-    count = Uzumibi::KV.get("counter")
-    count = count ? count.to_i + 1 : 1
-    Uzumibi::KV.put("counter", count.to_s)
-    
-    res.status_code = 200
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ count: count })
-    res
-  end
-end
-```
-
-### Example 2: Cached API Response
-
-```ruby
-class App < Uzumibi::Router
-  get "/weather/:city" do |req, res|
-    city = req.params[:city]
-    cache_key = "weather:#{city}"
-    
-    # Try to get from cache
-    cached = Uzumibi::Cache.get(cache_key)
-    
-    if cached
-      res.status_code = 200
-      res.headers = { 
-        "Content-Type" => "application/json",
-        "X-Cache" => "HIT"
-      }
-      res.body = cached
-    else
-      # Fetch from external API
-      weather_res = Uzumibi::Fetch.get(
-        "https://api.weather.com/#{city}"
-      )
-      
-      # Cache for 1 hour
-      Uzumibi::Cache.put(cache_key, weather_res.body, ttl: 3600)
-      
-      res.status_code = 200
-      res.headers = { 
-        "Content-Type" => "application/json",
-        "X-Cache" => "MISS"
-      }
-      res.body = weather_res.body
-    end
-    
-    res
-  end
-end
-```
-
-### Example 3: Database-Backed Application
-
-```ruby
-class App < Uzumibi::Router
-  get "/users/:id" do |req, res|
-    user_id = req.params[:id].to_i
-    
-    results = Uzumibi::SQL.query(
-      "SELECT * FROM users WHERE id = ?",
-      [user_id]
+    count = (Uzumibi::KV.get("counter") || "0").to_i + 1
+    Uzumibi::KV.set("counter", count.to_s)
+    res.return(
+      200,
+      { "content-type" => "application/json" },
+      JSON.generate({ "count" => count })
     )
-    
-    if results.length > 0
-      user = results[0]
-      res.status_code = 200
-      res.headers = { "Content-Type" => "application/json" }
-      res.body = JSON.generate(user)
-    else
-      res.status_code = 404
-      res.body = "User not found"
-    end
-    
-    res
-  end
-  
-  post "/users" do |req, res|
-    data = JSON.parse(req.body)
-    
-    Uzumibi::SQL.execute(
-      "INSERT INTO users (name, email) VALUES (?, ?)",
-      [data["name"], data["email"]]
-    )
-    
-    res.status_code = 201
-    res.headers = { "Content-Type" => "application/json" }
-    res.body = JSON.generate({ created: true })
-    res
   end
 end
-```
+
+$APP = App.new
+~~~
+
+Configure `UZUMIBI_KV` in `wrangler.jsonc` before running this application.
+
+## Outbound JSON request
+
+~~~ruby
+get "/upstream" do |req, res|
+  upstream = Uzumibi::Fetch.fetch(
+    "https://example.com/api",
+    "GET",
+    "",
+    { "accept" => "application/json" }
+  )
+
+  res.return(
+    upstream.status_code,
+    { "content-type" => upstream.headers["content-type"] || "text/plain" },
+    upstream.body
+  )
+end
+~~~
+
+## Send a Queue message
+
+After configuring a producer binding named `UZUMIBI_QUEUE`:
+
+~~~ruby
+post "/jobs" do |req, res|
+  Uzumibi::Queue.send("UZUMIBI_QUEUE", req.raw_body)
+  res.return(202, { "content-type" => "text/plain" }, "queued\n")
+end
+~~~
+
+## Queue consumer
+
+This example belongs in `lib/consumer.rb` of a project generated with `--features queue`:
+
+~~~ruby
+class Consumer < Uzumibi::Consumer
+  def on_receive(message)
+    begin
+      payload = JSON.parse(message.body)
+      debug_console("processing #{payload.inspect}")
+      message.ack!
+    rescue => error
+      debug_console("failed: #{error.message}")
+      message.retry(delay_seconds: 10)
+    end
+  end
+end
+
+$CONSUMER = Consumer.new
+~~~

@@ -1,48 +1,38 @@
 # Common Workflows
 
-### Creating and Deploying a New App
+## Create a Cloudflare HTTP application
 
-```bash
-# 1. Create project
+~~~bash
 uzumibi new --template cloudflare my-app
-
-# 2. Navigate to project
 cd my-app
+pnpm install
+pnpm run dev
+~~~
 
-# 3. Edit your Ruby code
-vim lib/app.rb
+Edit `lib/app.rb`, then restart `pnpm run dev` to rebuild the embedded Ruby bytecode.
 
-# 4. Build WASM module
-cd wasm-app
-cargo build --target wasm32-unknown-unknown --release
-cd ..
+## Enable Cloudflare host APIs
 
-# 5. Test locally
-npx wrangler dev
+~~~bash
+uzumibi new --template cloudflare --features enable-external my-app
+cd my-app
+pnpm install
+~~~
 
-# 6. Deploy
-npx wrangler deploy
-```
+Install `wasm-opt`, configure the bindings in `wrangler.jsonc`, then run `pnpm run dev`.
 
-### Updating Ruby Code
+## Create a Cloudflare Queue consumer
 
-After modifying `lib/app.rb`, rebuild the WASM module:
+~~~bash
+uzumibi new --template cloudflare --features queue my-consumer
+cd my-consumer
+pnpm install
+pnpm exec wrangler queues create my-consumer-queue
+pnpm run dev
+~~~
 
-```bash
-cd wasm-app
-cargo build --target wasm32-unknown-unknown --release
-cd ..
-```
+Implement `Consumer#on_receive` in `lib/consumer.rb`. Ensure the queue name and bindings in `wrangler.jsonc` match the resource you created.
 
-The `build.rs` script automatically compiles your Ruby code to mruby bytecode during the Cargo build process.
+## Update an existing generated project
 
-### Adding Dependencies
-
-To add Rust crates to your project:
-
-```bash
-cd wasm-app  # or project root for non-Cloudflare projects
-cargo add <crate-name>
-```
-
-Note: mruby/Ruby dependencies are limited to what's available in the mruby/edge runtime.
+Templates are copied at generation time; upgrading `uzumibi-cli` does not rewrite an existing application. Generate a temporary project with the same template and feature, compare it with your application, and apply the changes you need.

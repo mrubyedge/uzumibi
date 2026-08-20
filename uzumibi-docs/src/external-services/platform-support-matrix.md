@@ -1,16 +1,18 @@
-# Platform Support Matrix
+# Feature Support Matrix
 
-| Service | Cloudflare | Fastly | Spin | Cloud Run |
-|---------|-----------|--------|------|-----------|
-| **KV** | ✅ Workers KV | ✅ KV Store | ✅ KV Store | ❌ TBA |
-| **Cache** | ✅ Cache API | ✅ Edge Cache | ❌ TBA | ❌ TBA |
-| **Secret** | ✅ Secrets | ✅ Secret Store | ✅ Variables | ✅ Secret Manager |
-| **ObjectStore** | ✅ R2 | ❌ TBA | ❌ TBA | ✅ Cloud Storage |
-| **Queue** | ✅ Queues | ❌ TBA | ❌ TBA | ✅ Pub/Sub |
-| **SQL** | ✅ D1 | ❌ TBA | ✅ SQLite | ✅ Cloud SQL |
-| **Fetch** | ✅ fetch API | ✅ Backends | ✅ Outbound HTTP | ✅ HTTP |
+This matrix describes the generated Cloudflare variants.
 
-Legend:
-- ✅ Planned/Available
-- ❌ Not Available/TBA
-- TBA: To Be Announced
+| Capability | Base | `enable-external` | `queue` |
+| --- | --- | --- | --- |
+| HTTP `Uzumibi::Router` application | Yes | Yes | No; HTTP returns 400 |
+| `debug_console` | Yes | Yes | Yes |
+| `fetch_assets` | Yes | Yes | Not used by the event consumer |
+| `Uzumibi::Fetch.fetch` | No | Yes | Yes |
+| `Uzumibi::KV.get/set` | No | Yes | Yes |
+| `Uzumibi::LegacyKV.get/set` | No | Yes | Yes |
+| `Uzumibi::Secret.get` | No | Yes | Yes |
+| `Uzumibi::Queue.send` | No | Yes, with a producer binding | Yes |
+| `Uzumibi::Consumer` and `Message` | No | No | Yes |
+| Asyncify / `wasm-opt` required | No | Yes | Yes |
+
+Other platform adapters have their own feature sets. Refer to their generated files and platform guides rather than inferring support from this table.

@@ -1,21 +1,28 @@
-# Helper Functions
+# Platform Helper Functions
 
-### `debug_console(message)`
+Helper functions are supplied by platform adapters, not by the core `uzumibi-gem`.
 
-Output debug messages to the console:
+## `debug_console(message)`
 
-```ruby
+The Cloudflare adapter converts the argument with `to_s` and writes it through the Worker console:
+
+~~~ruby
 get "/debug" do |req, res|
-  debug_console("[Debug] Request received: #{req.path}")
-  debug_console("[Debug] Headers: #{req.headers.inspect}")
-  
-  res.status_code = 200
-  res.body = "Check console for debug output"
-  res
+  debug_console("request path: #{req.path}")
+  res.return(200, {}, "logged\n")
 end
-```
+~~~
 
-Note: The exact behavior of `debug_console` depends on the platform:
-- Cloudflare Workers: Outputs to Workers console
-- Fastly Compute: Outputs to Fastly logs
-- Local development: Outputs to stdout
+Other templates can map the same helper to their own logging facility. Logging destination and behavior are platform-specific.
+
+## `fetch_assets`
+
+In a Cloudflare HTTP application, `fetch_assets` stops Ruby request handling and delegates the original request to the `ASSETS` binding:
+
+~~~ruby
+get "/assets/*" do |req, res|
+  fetch_assets
+end
+~~~
+
+This helper is Cloudflare-specific.

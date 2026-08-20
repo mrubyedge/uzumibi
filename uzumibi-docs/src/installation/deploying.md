@@ -1,31 +1,29 @@
 # Deploying
 
-### Cloudflare Workers
+## Cloudflare Workers
 
-Make sure you have a Cloudflare account and `wrangler` configured:
+Authenticate Wrangler:
 
-```bash
-npx wrangler login
-```
+~~~bash
+pnpm exec wrangler login
+~~~
 
-Deploy your application:
+Then build and deploy:
 
-```bash
-npx wrangler deploy
-```
+~~~bash
+pnpm run deploy
+~~~
 
-### Fastly Compute
+The deploy script selects the correct build mode for the generated template:
 
-Deploy to Fastly:
+- base template: vanilla Wasm
+- `enable-external`: Asyncify-enabled Wasm
+- `queue`: Queue consumer Wasm
 
-```bash
-fastly compute deploy
-```
+Before deploying a feature variant, replace placeholder resource IDs and create any Queue or KV resources referenced by `wrangler.jsonc`.
 
-### Spin (Fermyon Cloud)
+Cloudflare account limits and resource configuration can change. Refer to the [Cloudflare Workers documentation](https://developers.cloudflare.com/workers/) for platform policy and Wrangler configuration.
 
-Deploy to Fermyon Cloud:
+## Other templates
 
-```bash
-spin deploy
-```
+Deployment commands are platform-specific. Use the next steps printed by the CLI and the configuration generated for that template.

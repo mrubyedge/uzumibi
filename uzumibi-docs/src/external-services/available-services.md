@@ -1,248 +1,87 @@
 # Available Services
 
-### KV (Key-Value Store)
+## Cloudflare Workers
 
-Key-value storage for simple data persistence.
+Generate an HTTP application with these APIs using:
 
-**Status**: TBA
+~~~bash
+uzumibi new --template cloudflare --features enable-external my-app
+~~~
 
-#### Planned API
+### Outbound HTTP
 
-```ruby
-# Store a value
-Uzumibi::KV.put("user:123", "John Doe")
+~~~ruby
+Uzumibi::Fetch.fetch(url, method = "GET", body = "", headers = {})
+~~~
 
-# Retrieve a value
-name = Uzumibi::KV.get("user:123")  # => "John Doe"
+Returns an `Uzumibi::Response` with `status_code`, `headers`, and `body`.
 
-# Delete a value
-Uzumibi::KV.delete("user:123")
+### Workers KV
 
-# Check if key exists
-exists = Uzumibi::KV.exists?("user:123")  # => true/false
+~~~ruby
+Uzumibi::KV.get(key)          # String or nil
+Uzumibi::KV.set(key, value)   # true
+~~~
 
-# List keys with prefix
-keys = Uzumibi::KV.list(prefix: "user:")  # => ["user:123", "user:456"]
-```
+The generated host uses the `UZUMIBI_KV` binding. Only `get` and `set` are currently implemented.
 
-#### Platform Mapping
+### Durable Object storage
 
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | Workers KV |
-| Fastly Compute | Fastly KV Store |
-| Spin | Spin KV Store |
-| Cloud Run | TBA |
+~~~ruby
+Uzumibi::LegacyKV.get(key)
+Uzumibi::LegacyKV.set(key, value)
+~~~
 
-### Cache
+The generated project defines a single `UzumibiKVObject` instance named `default`. This compatibility API is separate from Workers KV.
 
-HTTP caching layer for response caching.
+### Environment bindings and secrets
 
-**Status**: TBA
+~~~ruby
+Uzumibi::Secret.get(name)     # String or nil
+~~~
 
-#### Planned API
+The host looks up `env[name]`. Configure sensitive values with Wrangler secrets rather than committing them.
 
-```ruby
-# Store in cache
-Uzumibi::Cache.put(
-  "cache-key", 
-  response_body,
-  ttl: 3600  # seconds
-)
+### Queue producer
 
-# Retrieve from cache
-cached = Uzumibi::Cache.get("cache-key")
+~~~ruby
+Uzumibi::Queue.send(binding_name, message)
+~~~
 
-# Delete from cache
-Uzumibi::Cache.delete("cache-key")
+`binding_name` is the producer binding in `wrangler.jsonc`, for example `"UZUMIBI_QUEUE"`. The message is converted to a String.
 
-# Clear all cache
-Uzumibi::Cache.clear
-```
+### Cloudflare Access identity
 
-#### Platform Mapping
+~~~ruby
+Uzumibi::Access.team = "my-team"
+identity = Uzumibi::Access.get_identity(token)
+~~~
 
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | Cache API |
-| Fastly Compute | Edge Cache |
-| Spin | TBA |
-| Cloud Run | TBA |
+The result is an `Uzumibi::AccessIdentity` with `user_uuid`, `email`, and `raw_data`.
 
-### Secret
+### Static assets
 
-Secure storage for API keys, tokens, and sensitive configuration.
+`fetch_assets` is available in every Cloudflare build. It exits Ruby routing and delegates the original request to the generated `ASSETS` binding.
 
-**Status**: TBA
+## Queue consumer
 
-#### Planned API
+Generate with:
 
-```ruby
-# Access secrets
-api_key = Uzumibi::Secret.get("API_KEY")
-db_password = Uzumibi::Secret.get("DB_PASSWORD")
-```
+~~~bash
+uzumibi new --template cloudflare --features queue my-consumer
+~~~
 
-#### Platform Mapping
+The Queue API adds:
 
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | Environment Variables / Secrets |
-| Fastly Compute | Secret Store |
-| Spin | Spin Variables |
-| Cloud Run | Secret Manager |
+- `Uzumibi::Consumer#on_receive(message)`
+- `Uzumibi::Message#id`
+- `Uzumibi::Message#timestamp`
+- `Uzumibi::Message#body`
+- `Uzumibi::Message#attempts`
+- `Uzumibi::Message#ack!`
+- `Uzumibi::Message#nack!`
+- `Uzumibi::Message#retry(delay_seconds: N)`
 
-### ObjectStore
+## Not currently implemented by the Cloudflare adapter
 
-Object storage for files and binary data.
-
-**Status**: TBA
-
-#### Planned API
-
-```ruby
-# Upload object
-Uzumibi::ObjectStore.put(
-  "images/photo.jpg",
-  image_data,
-  content_type: "image/jpeg"
-)
-
-# Download object
-image_data = Uzumibi::ObjectStore.get("images/photo.jpg")
-
-# Delete object
-Uzumibi::ObjectStore.delete("images/photo.jpg")
-
-# List objects
-objects = Uzumibi::ObjectStore.list(prefix: "images/")
-```
-
-#### Platform Mapping
-
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | R2 |
-| Fastly Compute | TBA |
-| Spin | TBA |
-| Cloud Run | Cloud Storage |
-
-### Queue
-
-Message queue for asynchronous task processing.
-
-**Status**: TBA
-
-#### Planned API
-
-```ruby
-# Send message to queue
-Uzumibi::Queue.send(
-  "notifications",
-  { user_id: 123, message: "Hello" }
-)
-
-# Consume messages (in queue consumer handler)
-Uzumibi::Queue.on_message do |message|
-  # Process message
-  user_id = message[:user_id]
-  # ...
-end
-```
-
-#### Platform Mapping
-
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | Queue (Workers for Platforms) |
-| Fastly Compute | TBA |
-| Spin | TBA |
-| Cloud Run | Cloud Tasks / Pub/Sub |
-
-### SQL
-
-SQL database access.
-
-**Status**: TBA
-
-#### Planned API
-
-```ruby
-# Execute query
-results = Uzumibi::SQL.query(
-  "SELECT * FROM users WHERE id = ?",
-  [123]
-)
-
-# Execute update
-affected = Uzumibi::SQL.execute(
-  "UPDATE users SET name = ? WHERE id = ?",
-  ["New Name", 123]
-)
-
-# Transaction support
-Uzumibi::SQL.transaction do |tx|
-  tx.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
-  tx.execute("INSERT INTO logs (action) VALUES (?)", ["user_created"])
-end
-```
-
-#### Platform Mapping
-
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | D1 |
-| Fastly Compute | TBA |
-| Spin | SQLite |
-| Cloud Run | Cloud SQL |
-
-### Fetch
-
-HTTP client for making requests to external APIs.
-
-**Status**: TBA
-
-#### Planned API
-
-```ruby
-# GET request
-response = Uzumibi::Fetch.get("https://api.example.com/data")
-data = JSON.parse(response.body)
-
-# POST request
-response = Uzumibi::Fetch.post(
-  "https://api.example.com/users",
-  body: JSON.generate({ name: "Alice" }),
-  headers: {
-    "Content-Type" => "application/json",
-    "Authorization" => "Bearer #{token}"
-  }
-)
-
-# Full request
-response = Uzumibi::Fetch.request(
-  method: "PUT",
-  url: "https://api.example.com/resource",
-  headers: { "Content-Type" => "application/json" },
-  body: JSON.generate({ data: "value" })
-)
-```
-
-#### Platform Mapping
-
-| Platform | Implementation |
-|----------|----------------|
-| Cloudflare Workers | fetch() API |
-| Fastly Compute | Backend requests |
-| Spin | Outbound HTTP |
-| Cloud Run | HTTP client |
-
-### Others
-
-Additional services being considered:
-
-- **Analytics**: Request analytics and metrics
-- **Logging**: Structured logging
-- **Tracing**: Distributed tracing
-- **Email**: Email sending
-- **Websockets**: WebSocket connections (platform-dependent)
+The current adapter does not define general-purpose `Cache`, `ObjectStore`, or `SQL` Ruby classes. It also does not implement Workers KV delete, list, or metadata operations.

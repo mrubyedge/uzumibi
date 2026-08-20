@@ -22,7 +22,7 @@ class App < Uzumibi::Router
   
   # POST - Create resource
   post "/users" do |req, res|
-    data = JSON.parse(req.body)
+    data = JSON.parse(req.raw_body)
     
     res.status_code = 201
     res.headers = { "Content-Type" => "application/json" }
@@ -38,7 +38,7 @@ class App < Uzumibi::Router
   # PUT - Update resource
   put "/users/:id" do |req, res|
     user_id = req.params[:id]
-    data = JSON.parse(req.body)
+    data = JSON.parse(req.raw_body)
     
     res.status_code = 200
     res.headers = { "Content-Type" => "application/json" }
