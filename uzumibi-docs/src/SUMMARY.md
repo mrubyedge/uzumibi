@@ -42,6 +42,7 @@
 - [Platform Service APIs](./external-services.md)
   - [How Platform Service APIs Work](./external-services/what-are-external-service-abstractions.md)
   - [Available Services](./external-services/available-services.md)
+  - [Cloudflare Access identity](./external-services/cloudflare-access.md)
   - [Feature Support Matrix](./external-services/platform-support-matrix.md)
   - [Cloudflare Usage Examples](./external-services/usage-examples.md)
   - [Contributing](./external-services/contributing.md)

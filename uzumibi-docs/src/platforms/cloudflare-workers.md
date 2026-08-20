@@ -123,6 +123,8 @@ The following Ruby APIs are currently defined:
 | `Uzumibi::Queue.send(binding_name, message)` | Queue producer binding |
 | `Uzumibi::Access.team=` / `.get_identity(token)` | Cloudflare Access identity endpoint |
 
+See [Cloudflare Access identity](../external-services/cloudflare-access.md) for setup and request handling.
+
 Example outbound request:
 
 ~~~ruby

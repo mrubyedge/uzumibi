@@ -59,6 +59,8 @@ identity = Uzumibi::Access.get_identity(token)
 
 The result is an `Uzumibi::AccessIdentity` with `user_uuid`, `email`, and `raw_data`.
 
+See [Cloudflare Access identity](./cloudflare-access.md) for configuration, a request example, and error-handling guidance.
+
 ### Static assets
 
 `fetch_assets` is available in every Cloudflare build. It exits Ruby routing and delegates the original request to the generated `ASSETS` binding.
