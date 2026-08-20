@@ -14,6 +14,8 @@ use mrubyedge::{
     },
 };
 
+include!(concat!(env!("OUT_DIR"), "/uzumibi_config.rs"));
+
 #[cfg(not(feature = "queue"))]
 static MRB: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.mrb"));
 #[cfg(feature = "queue")]
@@ -61,6 +63,11 @@ fn assume_init_vm() -> Result<&'static mut VM, mrubyedge::Error> {
 }
 
 fn do_uzumibi_initialize_request(size: i32) -> Result<*mut u8, mrubyedge::Error> {
+    if size <= 0 || size as u32 > HTTP_MAX_BYTES {
+        return Err(mrubyedge::Error::RuntimeError(format!(
+            "Request size {size} exceeds the configured maximum of {HTTP_MAX_BYTES} bytes"
+        )));
+    }
     let vm = assume_init_vm()?;
     let size = RObject::integer(size as i64).to_refcount_assigned();
     let app = vm
@@ -69,6 +76,11 @@ fn do_uzumibi_initialize_request(size: i32) -> Result<*mut u8, mrubyedge::Error>
         .ok_or_else(|| mrubyedge::Error::RuntimeError("$APP is not defined".to_string()))?;
     let ret = mrb_funcall(vm, app.clone().into(), "initialize_request", &[size])?;
     ret.as_ref().try_into()
+}
+
+#[unsafe(export_name = "uzumibi_http_max_bytes")]
+extern "C" fn uzumibi_http_max_bytes() -> u32 {
+    HTTP_MAX_BYTES
 }
 
 fn do_uzumibi_start_request() -> Result<*mut u8, mrubyedge::Error> {
