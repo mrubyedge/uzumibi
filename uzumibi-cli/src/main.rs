@@ -535,6 +535,11 @@ fn print_project_next_steps(template: &str, _project_name: &str, features: &[Str
                 "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m and \x1b[33mpublic/index.html\x1b[0m to develop your custom SPA application"
             );
         }
+        "cloudflare" | "cloudrun" if has_queue => {
+            println!(
+                "  • After trying to bootstrap, edit \x1b[33mlib/consumer.rb\x1b[0m to develop your queue consumer"
+            );
+        }
         _ => {
             println!(
                 "  • After trying to bootstrap, edit \x1b[33mlib/app.rb\x1b[0m to develop your custom application"

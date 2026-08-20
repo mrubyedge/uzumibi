@@ -30,7 +30,9 @@ steps:
       command: cd {{ vars.tmpdir }} && {{ vars.binary }} new -t cloudflare --features queue {{ vars.project_name }}
     test: |
       current.exit_code == 0 &&
-      current.stdout contains 'Successfully created project'
+      current.stdout contains 'Successfully created project' &&
+      current.stdout contains 'lib/consumer.rb' &&
+      !(current.stdout contains 'lib/app.rb')
 
   check_queue_files:
     desc: Check Queue-specific files and configuration
@@ -48,6 +50,14 @@ steps:
     desc: Build and asyncify the Queue WASM app
     exec:
       command: cd {{ vars.tmpdir }}/{{ vars.project_name }} && pnpm run build:wasm:queue
+    test: current.exit_code == 0
+
+  check_queue_wasm_imports:
+    desc: Check that the Queue Worker provides every WASM host import
+    exec:
+      command: >-
+        cd {{ vars.tmpdir }}/{{ vars.project_name }} &&
+        node -e 'const fs = require("node:fs"); const p = require("./package.json"); const wasm = fs.readFileSync("src/" + p.name.replaceAll("-", "_") + "_queue.wasm"); const imports = WebAssembly.Module.imports(new WebAssembly.Module(wasm)).filter((item) => item.module === "env"); const source = fs.readFileSync("src/index.js", "utf8"); const missing = imports.map((item) => item.name).filter((name) => !source.includes(name + ":")); if (missing.length) { console.error("Missing WASM host imports: " + missing.join(", ")); process.exit(1); }'
     test: current.exit_code == 0
 
   start_server:
