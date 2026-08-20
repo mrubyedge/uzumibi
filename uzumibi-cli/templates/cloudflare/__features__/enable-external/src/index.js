@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { instantiate } from "asyncify-wasm";
 import mod from "./$$PROJECT_NAME_UNDERSCORE$$.wasm";
+import { RequestTooLargeError, writeRequestToWasm } from "./request-buffer.js";
 
 const wasmModule = mod;
 
@@ -24,8 +25,6 @@ export default {
         if (path === "/favicon.ico") {
             return new Response(null, { status: 404 });
         }
-
-        const query = new URL(request.url).searchParams;
 
         const kv = env.UZUMIBI_KV ?? null;
 
@@ -229,92 +228,13 @@ export default {
         const instance = await instantiate(wasmModule, importObject);
         const exports = instance.exports;
 
-        const reqResult = await exports.uzumibi_initialize_request(65536);
-        const reqOffset = Number(reqResult & 0xFFFFFFFFn);
-        if (reqOffset === 0) {
-            const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
-            const buffer = new Uint8Array(exports.memory.buffer, errOffset);
-            let errStr = "";
-            for (let i = 0; buffer[i] !== 0; i++) {
-                errStr += String.fromCharCode(buffer[i]);
+        try {
+            await writeRequestToWasm(exports, request);
+        } catch (error) {
+            if (error instanceof RequestTooLargeError) {
+                return new Response(error.message, { status: 413 });
             }
-            throw new Error(`Failed to initialize request: ${errStr}`);
-        }
-        const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
-
-        let pos = 0;
-        const dataView = new DataView(exports.memory.buffer, reqOffset);
-
-        const method = encoder.encode(request.method);
-        requestBuffer.fill(0, pos, pos + 6);
-        requestBuffer.set(method.slice(0, 6), pos);
-        pos += 6;
-
-        // Path size (u16 little-endian)
-        const pathBytes = encoder.encode(path);
-        dataView.setUint16(pos, pathBytes.length, true);
-        pos += 2;
-
-        // Path
-        requestBuffer.set(pathBytes, pos);
-        pos += pathBytes.length;
-
-        // Query string size (u16 little-endian)
-        const queryString = query.toString();
-        const queryBytes = encoder.encode(queryString);
-        dataView.setUint16(pos, queryBytes.length, true);
-        pos += 2;
-
-        // Query string
-        requestBuffer.set(queryBytes, pos);
-        pos += queryBytes.length;
-
-        // Headers
-        const headers = [];
-        request.headers.forEach((value, key) => {
-            if (key.toLowerCase() !== 'cf-connecting-ip' &&
-                key.toLowerCase() !== 'cf-ray' &&
-                !key.toLowerCase().startsWith('x-')) {
-                headers.push({ key, value });
-            }
-        });
-
-        // Headers count (u16 little-endian)
-        dataView.setUint16(pos, headers.length, true);
-        pos += 2;
-
-        // Each header
-        for (const header of headers) {
-            // Header key size (u16 little-endian)
-            const keyBytes = encoder.encode(header.key);
-            dataView.setUint16(pos, keyBytes.length, true);
-            pos += 2;
-
-            // Header key
-            requestBuffer.set(keyBytes, pos);
-            pos += keyBytes.length;
-
-            // Header value size (u16 little-endian)
-            const valueBytes = encoder.encode(header.value);
-            dataView.setUint16(pos, valueBytes.length, true);
-            pos += 2;
-
-            // Header value
-            requestBuffer.set(valueBytes, pos);
-            pos += valueBytes.length;
-        }
-
-        // Request body size (u32 little-endian)
-        const bodyBytes = request.body ? new Uint8Array(await request.arrayBuffer()) : new Uint8Array(0);
-        dataView.setUint32(pos, bodyBytes.length, true);
-        pos += 4;
-
-        // Request body
-        requestBuffer.set(bodyBytes, pos);
-        pos += bodyBytes.length;
-
-        if (pos > 65536) {
-            throw new Error("Request data exceeds allocated buffer size");
+            throw error;
         }
 
         const resResult = await exports.uzumibi_start_request();

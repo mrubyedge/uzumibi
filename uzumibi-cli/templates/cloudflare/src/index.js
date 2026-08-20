@@ -1,4 +1,5 @@
 import mod from "./$$PROJECT_NAME_UNDERSCORE$$.wasm";
+import { RequestTooLargeError, writeRequestToWasm } from "./request-buffer.js";
 
 const importObject = {
 	env: {
@@ -19,101 +20,18 @@ const exports = instance.exports;
 
 export default {
 	async fetch(request, env, ctx) {
-		const reqResult = exports.uzumibi_initialize_request(65536);
-		const reqOffset = Number(reqResult & 0xFFFFFFFFn);
-		if (reqOffset === 0) {
-			const errOffset = Number((reqResult >> 32n) & 0xFFFFFFFFn);
-			const decoder = new TextDecoder();
-			let errStr = "";
-			const buffer = new Uint8Array(exports.memory.buffer, errOffset);
-			for (let i = 0; buffer[i] !== 0; i++) {
-				errStr += String.fromCharCode(buffer[i]);
-			}
-			throw new Error(`Failed to initialize request: ${errStr}`);
-		}
-		const requestBuffer = new Uint8Array(exports.memory.buffer, reqOffset, 65536);
 		const path = new URL(request.url).pathname;
 		if (path === "/favicon.ico") {
 			return new Response(null, { status: 404 });
 		}
 
-		const query = new URL(request.url).searchParams;
-
-		let pos = 0;
-		const encoder = new TextEncoder();
-		const dataView = new DataView(exports.memory.buffer, reqOffset);
-
-		const method = encoder.encode(request.method);
-		requestBuffer.fill(0, pos, pos + 6);
-		requestBuffer.set(method.slice(0, 6), pos);
-		pos += 6;
-
-		// Path size (u16 little-endian)
-		const pathBytes = encoder.encode(path);
-		dataView.setUint16(pos, pathBytes.length, true);
-		pos += 2;
-
-		// Path
-		requestBuffer.set(pathBytes, pos);
-		pos += pathBytes.length;
-
-		// Query string size (u16 little-endian)
-		const queryString = query.toString();
-		const queryBytes = encoder.encode(queryString);
-		dataView.setUint16(pos, queryBytes.length, true);
-		pos += 2;
-
-		// Query string
-		requestBuffer.set(queryBytes, pos);
-		pos += queryBytes.length;
-
-		// Headers
-		const headers = [];
-		request.headers.forEach((value, key) => {
-			// 一般的なヘッダーのみ含める（必要に応じて調整）
-			if (key.toLowerCase() !== 'cf-connecting-ip' &&
-				key.toLowerCase() !== 'cf-ray' &&
-				!key.toLowerCase().startsWith('x-')) {
-				headers.push({ key, value });
+		try {
+			await writeRequestToWasm(exports, request);
+		} catch (error) {
+			if (error instanceof RequestTooLargeError) {
+				return new Response(error.message, { status: 413 });
 			}
-		});
-
-		// Headers count (u16 little-endian)
-		dataView.setUint16(pos, headers.length, true);
-		pos += 2;
-
-		// Each header
-		for (const header of headers) {
-			// Header key size (u16 little-endian)
-			const keyBytes = encoder.encode(header.key);
-			dataView.setUint16(pos, keyBytes.length, true);
-			pos += 2;
-
-			// Header key
-			requestBuffer.set(keyBytes, pos);
-			pos += keyBytes.length;
-
-			// Header value size (u16 little-endian)
-			const valueBytes = encoder.encode(header.value);
-			dataView.setUint16(pos, valueBytes.length, true);
-			pos += 2;
-
-			// Header value
-			requestBuffer.set(valueBytes, pos);
-			pos += valueBytes.length;
-		}
-
-		// Request body size (u32 little-endian)
-		const bodyBytes = request.body ? new Uint8Array(await request.arrayBuffer()) : new Uint8Array(0);
-		dataView.setUint32(pos, bodyBytes.length, true);
-		pos += 4;
-
-		// Request body
-		requestBuffer.set(bodyBytes, pos);
-		pos += bodyBytes.length;
-
-		if (pos > 65536) {
-			throw new Error("Request data exceeds allocated buffer size");
+			throw error;
 		}
 
 		const resResult = exports.uzumibi_start_request();
