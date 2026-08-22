@@ -101,6 +101,16 @@ jobs:
           mkdir -p .runn-diagnostics
           runn run new_cloudflare.yml --verbose
 
+      - name: Capture Cloudflare failure diagnostics
+        if: failure()
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
+        run: runn run new_cloudflare.yml --verbose --debug > .runn-diagnostics/runn-debug.log 2>&1 || true
+
       - name: Upload Cloudflare failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -161,6 +171,17 @@ jobs:
           mkdir -p .runn-diagnostics
           runn run new_cloudflare.yml --verbose
 
+      - name: Capture Cloudflare enable-external failure diagnostics
+        if: failure()
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
+          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
+        run: runn run new_cloudflare.yml --verbose --debug > .runn-diagnostics/runn-debug.log 2>&1 || true
+
       - name: Upload Cloudflare enable-external failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -219,6 +240,16 @@ jobs:
         run: |
           mkdir -p .runn-diagnostics
           runn run new_cloudflare_queue.yml --verbose
+
+      - name: Capture Cloudflare Queue failure diagnostics
+        if: failure()
+        working-directory: uzumibi-cli/tests/runn
+        env:
+          RUNN_SCOPES: "read:parent,run:exec"
+          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
+          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
+          UZUMIBI_PROJECT_NAME: test-cloudflare-queue-project-${{ github.run_id }}
+        run: runn run new_cloudflare_queue.yml --verbose --debug > .runn-diagnostics/runn-debug.log 2>&1 || true
 
       - name: Upload Cloudflare Queue failure diagnostics
         if: failure()
