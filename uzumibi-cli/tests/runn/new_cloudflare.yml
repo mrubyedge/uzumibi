@@ -106,12 +106,6 @@ steps:
       command: kill -INT $(ps -ef | grep 'wrangler.js de[v]' | awk '{print $2}') || true
     test: current.exit_code == 0
 
-  intentional_failure_for_diagnostics:
-    desc: Intentionally fail to verify CI diagnostics
-    exec:
-      command: echo 'Intentional failure for runn diagnostics validation' >&2; exit 1
-    test: current.exit_code == 0
-
   cleanup_after:
     desc: Clean up test directory
     exec:
