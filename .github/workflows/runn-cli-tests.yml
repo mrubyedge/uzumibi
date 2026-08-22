@@ -97,7 +97,18 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: runn run new_cloudflare.yml --verbose
+        run: |
+          mkdir -p .runn-diagnostics
+          runn run new_cloudflare.yml --verbose
+
+      - name: Upload Cloudflare failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runn-cloudflare-diagnostics
+          path: uzumibi-cli/tests/runn/.runn-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
   cloudflare-enable-external-test:
     name: Cloudflare template test (enable-external)
@@ -146,7 +157,18 @@ jobs:
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
           UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: runn run new_cloudflare.yml --verbose
+        run: |
+          mkdir -p .runn-diagnostics
+          runn run new_cloudflare.yml --verbose
+
+      - name: Upload Cloudflare enable-external failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runn-cloudflare-enable-external-diagnostics
+          path: uzumibi-cli/tests/runn/.runn-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
   cloudflare-queue-test:
     name: Cloudflare Queue template test
@@ -194,7 +216,18 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_PROJECT_NAME: test-cloudflare-queue-project-${{ github.run_id }}
-        run: runn run new_cloudflare_queue.yml --verbose
+        run: |
+          mkdir -p .runn-diagnostics
+          runn run new_cloudflare_queue.yml --verbose
+
+      - name: Upload Cloudflare Queue failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runn-cloudflare-queue-diagnostics
+          path: uzumibi-cli/tests/runn/.runn-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
   cloudrun-test:
     name: Cloud Run template test
