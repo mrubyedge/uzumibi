@@ -111,9 +111,3 @@ steps:
     exec:
       command: rm -rf {{ vars.tmpdir }}/{{ vars.project_name }}
     test: current.exit_code == 0
-
-  intentional_failure_for_diagnostics:
-    desc: Intentionally fail to verify CI failure diagnostics
-    exec:
-      command: echo 'Intentional failure for runn diagnostics validation' >&2; exit 1
-    test: current.exit_code == 0
