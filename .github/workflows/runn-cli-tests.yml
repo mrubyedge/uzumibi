@@ -40,6 +40,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run help tests
@@ -47,14 +48,14 @@ jobs:
         env:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-        run: runn run help.yml --verbose
+        run: runn run help.yml --verbose --debug-on-failure
 
       - name: Run error case tests
         working-directory: uzumibi-cli/tests/runn
         env:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-        run: runn run error_cases.yml --verbose
+        run: runn run error_cases.yml --verbose --debug-on-failure
 
   cloudflare-test:
     name: Cloudflare template test
@@ -88,6 +89,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run cloudflare tests
@@ -97,30 +99,7 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: |
-          mkdir -p runn-diagnostics
-          runn run new_cloudflare.yml --verbose
-
-      - name: Capture Cloudflare failure diagnostics
-        if: failure()
-        working-directory: uzumibi-cli/tests/runn
-        env:
-          RUNN_SCOPES: "read:parent,run:exec"
-          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
-          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: |
-          runn run new_cloudflare.yml --verbose --debug > runn-diagnostics/runn-debug.log 2>&1 || true
-          test -s runn-diagnostics/runn-debug.log
-
-      - name: Upload Cloudflare failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runn-cloudflare-diagnostics
-          path: uzumibi-cli/tests/runn/runn-diagnostics/
-          if-no-files-found: ignore
-          retention-days: 7
+        run: runn run new_cloudflare.yml --verbose --debug-on-failure
 
   cloudflare-enable-external-test:
     name: Cloudflare template test (enable-external)
@@ -159,6 +138,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run cloudflare tests with enable-external
@@ -169,31 +149,7 @@ jobs:
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
           UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: |
-          mkdir -p runn-diagnostics
-          runn run new_cloudflare.yml --verbose
-
-      - name: Capture Cloudflare enable-external failure diagnostics
-        if: failure()
-        working-directory: uzumibi-cli/tests/runn
-        env:
-          RUNN_SCOPES: "read:parent,run:exec"
-          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
-          UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
-          UZUMIBI_PROJECT_NAME: test-cloudflare-project-${{ github.run_id }}
-        run: |
-          runn run new_cloudflare.yml --verbose --debug > runn-diagnostics/runn-debug.log 2>&1 || true
-          test -s runn-diagnostics/runn-debug.log
-
-      - name: Upload Cloudflare enable-external failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runn-cloudflare-enable-external-diagnostics
-          path: uzumibi-cli/tests/runn/runn-diagnostics/
-          if-no-files-found: ignore
-          retention-days: 7
+        run: runn run new_cloudflare.yml --verbose --debug-on-failure
 
   cloudflare-queue-test:
     name: Cloudflare Queue template test
@@ -232,6 +188,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run Cloudflare Queue smoke test
@@ -241,30 +198,7 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_PROJECT_NAME: test-cloudflare-queue-project-${{ github.run_id }}
-        run: |
-          mkdir -p runn-diagnostics
-          runn run new_cloudflare_queue.yml --verbose
-
-      - name: Capture Cloudflare Queue failure diagnostics
-        if: failure()
-        working-directory: uzumibi-cli/tests/runn
-        env:
-          RUNN_SCOPES: "read:parent,run:exec"
-          UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
-          UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
-          UZUMIBI_PROJECT_NAME: test-cloudflare-queue-project-${{ github.run_id }}
-        run: |
-          runn run new_cloudflare_queue.yml --verbose --debug > runn-diagnostics/runn-debug.log 2>&1 || true
-          test -s runn-diagnostics/runn-debug.log
-
-      - name: Upload Cloudflare Queue failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runn-cloudflare-queue-diagnostics
-          path: uzumibi-cli/tests/runn/runn-diagnostics/
-          if-no-files-found: ignore
-          retention-days: 7
+        run: runn run new_cloudflare_queue.yml --verbose --debug-on-failure
 
   cloudrun-test:
     name: Cloud Run template test
@@ -290,6 +224,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run cloudrun tests
@@ -299,7 +234,7 @@ jobs:
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_PROJECT_NAME: test-cloudrun-project-${{ github.run_id }}
-        run: runn run new_cloudrun.yml --verbose
+        run: runn run new_cloudrun.yml --verbose --debug-on-failure
 
   cloudrun-enable-external-test:
     name: Cloud Run template test (enable-external)
@@ -325,6 +260,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run cloudrun tests
@@ -335,7 +271,7 @@ jobs:
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
           UZUMIBI_NEW_EXTRA_ARGS: "--features enable-external"
           UZUMIBI_PROJECT_NAME: test-cloudrun-project-${{ github.run_id }}
-        run: runn run new_cloudrun.yml --verbose
+        run: runn run new_cloudrun.yml --verbose --debug-on-failure
 
   webworker-test:
     name: Web Worker template test
@@ -364,6 +300,7 @@ jobs:
         uses: k1LoW/gh-setup@v1
         with:
           repo: k1LoW/runn
+          version: v1.10.0
           bin-match: runn
 
       - name: Run webworker tests
@@ -372,4 +309,4 @@ jobs:
           RUNN_SCOPES: "read:parent,run:exec"
           UZUMIBI_TEST_BINARY: ${{ github.workspace }}/target/release/uzumibi
           UZUMIBI_TEST_TMPDIR: ${{ runner.temp }}
-        run: runn run new_webworker.yml --verbose
+        run: runn run new_webworker.yml --verbose --debug-on-failure
