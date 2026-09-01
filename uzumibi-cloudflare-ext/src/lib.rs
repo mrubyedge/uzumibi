@@ -17,6 +17,9 @@ use mrubyedge::yamrb::{
 /// Special return value indicating that the request should be passed through to static assets.
 pub const PASS_ASSETS: u64 = 0xFEFFFFFF;
 
+#[cfg(feature = "enable-external")]
+const KV_SET_ERROR_INVALID_OPTIONS_JSON: i32 = -2;
+
 // ---- Cloudflare-specific extern C declarations ----
 
 // Host functions are supplied by the Worker's JavaScript importObject under the "env" module.
@@ -62,6 +65,8 @@ unsafe extern "C" {
         key_size: usize,
         value_ptr: *const u8,
         value_size: usize,
+        options_ptr: *const u8,
+        options_size: usize,
     ) -> i32;
     unsafe fn uzumibi_cf_durable_object_get(
         key_ptr: *const u8,
@@ -154,14 +159,53 @@ fn cf_kv_get(key: &str) -> Result<Option<String>, String> {
 }
 
 #[cfg(feature = "enable-external")]
-fn cf_kv_set(key: &str, value: &str) -> Result<(), String> {
+fn cf_kv_set(key: &str, value: &str, options_json: &str) -> Result<(), String> {
     unsafe {
-        let result = uzumibi_cf_kv_set(key.as_ptr(), key.len(), value.as_ptr(), value.len());
+        let result = uzumibi_cf_kv_set(
+            key.as_ptr(),
+            key.len(),
+            value.as_ptr(),
+            value.len(),
+            options_json.as_ptr(),
+            options_json.len(),
+        );
         match result {
             0 => Ok(()),
+            KV_SET_ERROR_INVALID_OPTIONS_JSON => Err("Failed to parse KV options JSON".to_string()),
             _ => Err(format!("Failed to set value: return code {}", result)),
         }
     }
+}
+
+#[cfg(feature = "enable-external")]
+fn kv_set_options_json(
+    expiration_ttl: Option<i64>,
+    expire_at: Option<i64>,
+) -> Result<String, String> {
+    const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
+    if expiration_ttl.is_some() && expire_at.is_some() {
+        return Err("expiration_ttl and expire_at cannot be used together".to_string());
+    }
+    if let Some(value) = expiration_ttl
+        && !(60..=MAX_SAFE_INTEGER).contains(&value)
+    {
+        return Err("expiration_ttl must be between 60 and 9007199254740991".to_string());
+    }
+    if let Some(value) = expire_at
+        && !(1..=MAX_SAFE_INTEGER).contains(&value)
+    {
+        return Err("expire_at must be between 1 and 9007199254740991".to_string());
+    }
+
+    let mut options = serde_json::Map::new();
+    if let Some(value) = expiration_ttl {
+        options.insert("expirationTtl".to_string(), value.into());
+    }
+    if let Some(value) = expire_at {
+        options.insert("expiration".to_string(), value.into());
+    }
+    Ok(serde_json::Value::Object(options).to_string())
 }
 
 #[cfg(feature = "enable-external")]
@@ -431,7 +475,7 @@ fn uzumibi_kv_class_get(
     }
 }
 
-/// KV.set(key, value)
+/// KV.set(key, value, expiration_ttl: nil, expire_at: nil)
 #[cfg(feature = "enable-external")]
 fn uzumibi_kv_class_set(
     vm: &mut VM,
@@ -445,7 +489,24 @@ fn uzumibi_kv_class_set(
     let value = mrb_funcall(vm, value_obj.clone().into(), "to_s", &[])?;
     let value: String = value.as_ref().try_into()?;
 
-    cf_kv_set(&key, &value).map_err(|e| {
+    let (expiration_ttl, expire_at) = match vm.get_kwargs() {
+        Some(kwargs) => {
+            let expiration_ttl = match kwargs.get("expiration_ttl") {
+                Some(value) => Some(value.as_ref().try_into()?),
+                None => None,
+            };
+            let expire_at = match kwargs.get("expire_at") {
+                Some(value) => Some(value.as_ref().try_into()?),
+                None => None,
+            };
+            (expiration_ttl, expire_at)
+        }
+        None => (None, None),
+    };
+    let options_json =
+        kv_set_options_json(expiration_ttl, expire_at).map_err(mrubyedge::Error::RuntimeError)?;
+
+    cf_kv_set(&key, &value, &options_json).map_err(|e| {
         mrubyedge::Error::RuntimeError(format!("Failed to set storage value: {}", e))
     })?;
 
@@ -811,7 +872,7 @@ pub fn init_cloudflare_ext(vm: &mut VM) {
             Box::new(uzumibi_fetch_class_fetch),
         );
 
-        // Uzumibi::KV.get(key) / Uzumibi::KV.set(key, value)
+        // Uzumibi::KV.get(key) / Uzumibi::KV.set(key, value, expiration_ttl:, expire_at:)
         let kv_class = vm.define_class("KV", None, Some(uzumibi_module.clone()));
         mrb_define_class_cmethod(vm, kv_class.clone(), "get", Box::new(uzumibi_kv_class_get));
         mrb_define_class_cmethod(vm, kv_class, "set", Box::new(uzumibi_kv_class_set));

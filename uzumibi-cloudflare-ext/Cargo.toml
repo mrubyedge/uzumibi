@@ -12,6 +12,7 @@ mrubyedge = { version = ">= 1.1.10", features = [
 ], default-features = false }
 uzumibi-gem = ">= 0.6.0"
 mrubyedge-serde-json = ">= 0.1.2"
+serde_json = "1"
 
 [features]
 default = []

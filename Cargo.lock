@@ -2909,6 +2909,7 @@ version = "0.3.1"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
+ "serde_json",
  "uzumibi-gem 0.6.0",
 ]
 
