@@ -1,6 +1,6 @@
 [package]
 name = "uzumibi-cloudflare-ext"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 authors = ["Uchio Kondo <udzura@udzura.jp>"]
 description = "Cloudflare Workers extension for Uzumibi (mruby/edge serverless framework)"
@@ -12,6 +12,7 @@ mrubyedge = { version = ">= 1.1.10", features = [
 ], default-features = false }
 uzumibi-gem = ">= 0.6.0"
 mrubyedge-serde-json = ">= 0.1.2"
+serde_json = "1"
 
 [features]
 default = []

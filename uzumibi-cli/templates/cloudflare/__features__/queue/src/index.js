@@ -3,6 +3,7 @@ import { instantiate } from "asyncify-wasm";
 import mod from "./$$PROJECT_NAME_UNDERSCORE$$_queue.wasm";
 
 const wasmModule = mod;
+const KV_SET_ERROR_INVALID_OPTIONS_JSON = -2;
 
 /**
  * Durable Object storage retained for Uzumibi::LegacyKV.
@@ -151,14 +152,31 @@ export default {
                     return length;
                 },
 
-                // KV.set(key, value)
-                uzumibi_cf_kv_set: async (keyPtr, keySize, valuePtr, valueSize) => {
+                // KV.set(key, value, options)
+                uzumibi_cf_kv_set: async (
+                    keyPtr,
+                    keySize,
+                    valuePtr,
+                    valueSize,
+                    optionsPtr,
+                    optionsSize,
+                ) => {
                     if (!kv) return -1;
                     const memory = exports.memory;
                     const key = decoder.decode(new Uint8Array(memory.buffer, keyPtr, keySize));
                     const value = decoder.decode(new Uint8Array(memory.buffer, valuePtr, valueSize));
+                    const optionsJson = decoder.decode(
+                        new Uint8Array(memory.buffer, optionsPtr, optionsSize),
+                    );
+                    let options;
+                    try {
+                        options = JSON.parse(optionsJson);
+                    } catch (error) {
+                        console.error("Failed to parse KV options JSON", error);
+                        return KV_SET_ERROR_INVALID_OPTIONS_JSON;
+                    }
 
-                    await kv.put(key, value);
+                    await kv.put(key, value, options);
                     return 0;
                 },
 

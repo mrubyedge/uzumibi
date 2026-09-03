@@ -2896,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-cli"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "clap",
  "dialoguer",
@@ -2905,10 +2905,11 @@ dependencies = [
 
 [[package]]
 name = "uzumibi-cloudflare-ext"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "mrubyedge",
  "mrubyedge-serde-json",
+ "serde_json",
  "uzumibi-gem 0.6.0",
 ]
 
