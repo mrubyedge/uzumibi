@@ -9,7 +9,6 @@ on:
   pull_request:
     paths:
       - 'uzumibi-cli/**'
-      - 'uzumibi-cloudflare-ext/**'
       - '.github/workflows/runn-cli-tests.yml'
   workflow_dispatch:
 
@@ -86,11 +85,6 @@ jobs:
         with:
           version: 10
 
-      - name: Use checkout's Cloudflare extension
-        run: |
-          mkdir -p ~/.cargo
-          printf '[patch.crates-io]\nuzumibi-cloudflare-ext = { path = "%s/uzumibi-cloudflare-ext" }\n' "$GITHUB_WORKSPACE" >> ~/.cargo/config.toml
-
       - name: Install runn
         uses: k1LoW/gh-setup@v1
         with:
@@ -139,11 +133,6 @@ jobs:
         run: |
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_120/binaryen-version_120-x86_64-linux.tar.gz | tar xz
           sudo cp binaryen-version_120/bin/wasm-opt /usr/local/bin/
-
-      - name: Use checkout's Cloudflare extension
-        run: |
-          mkdir -p ~/.cargo
-          printf '[patch.crates-io]\nuzumibi-cloudflare-ext = { path = "%s/uzumibi-cloudflare-ext" }\n' "$GITHUB_WORKSPACE" >> ~/.cargo/config.toml
 
       - name: Install runn
         uses: k1LoW/gh-setup@v1
@@ -194,11 +183,6 @@ jobs:
         run: |
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_120/binaryen-version_120-x86_64-linux.tar.gz | tar xz
           sudo cp binaryen-version_120/bin/wasm-opt /usr/local/bin/
-
-      - name: Use checkout's Cloudflare extension
-        run: |
-          mkdir -p ~/.cargo
-          printf '[patch.crates-io]\nuzumibi-cloudflare-ext = { path = "%s/uzumibi-cloudflare-ext" }\n' "$GITHUB_WORKSPACE" >> ~/.cargo/config.toml
 
       - name: Install runn
         uses: k1LoW/gh-setup@v1
