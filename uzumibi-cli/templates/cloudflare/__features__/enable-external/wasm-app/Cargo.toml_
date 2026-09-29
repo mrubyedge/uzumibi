@@ -7,16 +7,16 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mrubyedge = { version = ">= 1.1.12", features = [
+mrubyedge = { version = "2.1.0", features = [
     "no-wasi",
 ], default-features = false }
-uzumibi-gem = ">= 0.6.0"
+uzumibi-gem = "0.6.1"
 uzumibi-art-router = ">= 0.3.1"
-uzumibi-cloudflare-ext = ">= 0.4.0"
-mrubyedge-serde-json = ">= 0.1.2"
+uzumibi-cloudflare-ext = "0.4.1"
+mrubyedge-serde-json = "0.3.0"
 
 [build-dependencies]
-mruby-compiler2-sys = ">= 0.3.0"
+mruby-compiler2-sys = "0.5.0"
 
 [features]
 default = ["enable-external"]

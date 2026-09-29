@@ -116,7 +116,7 @@ unsafe extern "C" fn uzumibi_initialize_request(size: i32) -> u64 {
 unsafe extern "C" fn uzumibi_start_request() -> u64 {
     match do_uzumibi_start_request() {
         Ok(ptr) => (ptr as u32) as u64,
-        Err(mrubyedge::Error::TaggedError("UzumibiPassAssets", _)) => {
+        Err(mrubyedge::Error::TaggedError(tag, _)) if tag == "UzumibiPassAssets" => {
             uzumibi_cloudflare_ext::PASS_ASSETS << 32
         }
         Err(e) => {

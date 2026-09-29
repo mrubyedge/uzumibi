@@ -835,7 +835,7 @@ fn uzumibi_fetch_assets(
     _args: &[Rc<RObject>],
 ) -> Result<Rc<RObject>, mrubyedge::Error> {
     Err(mrubyedge::Error::TaggedError(
-        "UzumibiPassAssets",
+        "UzumibiPassAssets".to_string(),
         "pass assets to platform".to_string(),
     ))
 }
