@@ -1,6 +1,6 @@
 # Uzumibi
 
-![Uzumibi's Logo](./logo.png)
+<img src="./logo.svg" alt="Uzumibi's Logo" width="360">
 
 Uzumibi is a Ruby web framework and project generator for WebAssembly-based edge and serverless runtimes. Ruby application code is compiled to mruby bytecode at build time and executed by [mruby/edge](https://github.com/mrubyedge/mrubyedge) inside a platform-specific host.
 
