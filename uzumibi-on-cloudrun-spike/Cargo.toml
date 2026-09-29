@@ -23,7 +23,7 @@ tokio = { version = "1.49", features = [
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 
 [build-dependencies]
-mruby-compiler2-sys = ">= 0.2.2"
+mruby-compiler2-sys = "0.5.0"
 
 [features]
 default = ["enable-external"]
